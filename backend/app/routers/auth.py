@@ -1,11 +1,12 @@
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo.errors import DuplicateKeyError
 
 from app.db.mongodb import get_database
-from app.schemas.user import Token, UserLogin, UserRegister, UserResponse
+from app.schemas.user import Token, UserRegister, UserResponse
 from app.services.security import (
     create_access_token,
     get_current_user,
@@ -51,11 +52,12 @@ async def register(
 
 @router.post("/login", response_model=Token)
 async def login(
-    payload: UserLogin,
+    form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncIOMotorDatabase = Depends(get_database),
 ) -> Token:
-    user = await db.users.find_one({"email": payload.email.lower()})
-    if user is None or not verify_password(payload.password, user["hashed_password"]):
+    user = await db.users.find_one({"email": form_data.username.lower()})
+
+    if user is None or not verify_password(form_data.password, user["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
@@ -75,6 +77,7 @@ async def login(
             "role": user["role"],
         }
     )
+
     return Token(access_token=access_token, token_type="bearer")
 
 
