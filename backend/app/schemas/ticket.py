@@ -32,6 +32,7 @@ class TicketCreate(BaseModel):
     priority: TicketPriority | None = None
     sentiment: TicketSentiment | None = None
     assigned_queue: str | None = None
+    assigned_agent_id: str | None = None
 
 
 class TicketUpdate(BaseModel):
@@ -43,6 +44,7 @@ class TicketUpdate(BaseModel):
     priority: TicketPriority | None = None
     sentiment: TicketSentiment | None = None
     assigned_queue: str | None = None
+    assigned_agent_id: str | None = None
 
 
 class TicketResponse(BaseModel):
@@ -55,6 +57,7 @@ class TicketResponse(BaseModel):
     priority: TicketPriority
     sentiment: TicketSentiment
     assigned_queue: str | None
+    assigned_agent_id: str | None
     created_by: str
     created_at: datetime
     updated_at: datetime

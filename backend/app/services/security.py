@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -82,3 +83,39 @@ async def get_current_user(
         )
 
     return user_doc_to_response(user)
+
+
+def require_roles(*allowed_roles: UserRole) -> Callable:
+    async def role_checker(
+        current_user: UserResponse = Depends(get_current_user),
+    ) -> UserResponse:
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You do not have permission to perform this action",
+            )
+        return current_user
+
+    return role_checker
+
+
+async def require_admin(
+    current_user: UserResponse = Depends(get_current_user),
+) -> UserResponse:
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+    return current_user
+
+
+async def require_agent_or_admin(
+    current_user: UserResponse = Depends(get_current_user),
+) -> UserResponse:
+    if current_user.role not in (UserRole.ADMIN, UserRole.AGENT):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Agent or admin access required",
+        )
+    return current_user

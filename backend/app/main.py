@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.db.mongodb import close_mongo_connection, connect_to_mongo
-from app.routers import auth, tickets
+from app.routers import analytics, auth, tickets
 
 
 @asynccontextmanager
@@ -69,3 +69,4 @@ async def health() -> dict[str, str]:
 
 app.include_router(auth.router)
 app.include_router(tickets.router)
+app.include_router(analytics.router)
