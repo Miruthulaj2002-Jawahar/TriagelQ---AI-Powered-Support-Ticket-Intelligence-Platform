@@ -16,6 +16,7 @@ from app.schemas.ticket import (
     TicketUpdate,
 )
 from app.schemas.user import UserResponse
+from app.services.classifier import classify_ticket
 from app.services.security import get_current_user
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
@@ -54,16 +55,23 @@ async def create_ticket(
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: UserResponse = Depends(get_current_user),
 ) -> TicketResponse:
+    classification = classify_ticket(payload.title, payload.description)
+
+    category = payload.category or classification["category"]
+    priority = payload.priority.value if payload.priority else classification["priority"]
+    sentiment = payload.sentiment.value if payload.sentiment else classification["sentiment"]
+    assigned_queue = payload.assigned_queue or classification["assigned_queue"]
+
     now = datetime.now(UTC)
     ticket_doc = {
         "title": payload.title,
         "description": payload.description,
         "customer_email": str(payload.customer_email).lower(),
         "status": TicketStatus.OPEN.value,
-        "category": payload.category,
-        "priority": payload.priority.value,
-        "sentiment": payload.sentiment.value,
-        "assigned_queue": payload.assigned_queue,
+        "category": category,
+        "priority": priority,
+        "sentiment": sentiment,
+        "assigned_queue": assigned_queue,
         "created_by": current_user.id,
         "created_at": now,
         "updated_at": now,

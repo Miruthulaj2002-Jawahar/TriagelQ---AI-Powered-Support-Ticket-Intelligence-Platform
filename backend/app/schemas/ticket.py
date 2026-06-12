@@ -29,8 +29,8 @@ class TicketCreate(BaseModel):
     description: str = Field(..., min_length=1)
     customer_email: EmailStr
     category: str | None = None
-    priority: TicketPriority = TicketPriority.MEDIUM
-    sentiment: TicketSentiment = TicketSentiment.NEUTRAL
+    priority: TicketPriority | None = None
+    sentiment: TicketSentiment | None = None
     assigned_queue: str | None = None
 
 
