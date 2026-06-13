@@ -21,8 +21,9 @@ function AppLayout() {
             <>
               <NavLink to="/dashboard">Dashboard</NavLink>
               <NavLink to="/tickets">Tickets</NavLink>
-              <NavLink to="/create-ticket">Create Ticket</NavLink>
               <NavLink to="/analytics">Analytics</NavLink>
+              <NavLink to="/users">Users</NavLink>
+              <NavLink to="/profile">Profile</NavLink>
             </>
           )}
 
@@ -30,6 +31,7 @@ function AppLayout() {
             <>
               <NavLink to="/tickets">Tickets</NavLink>
               <NavLink to="/create-ticket">Create Ticket</NavLink>
+              <NavLink to="/profile">Profile</NavLink>
             </>
           )}
         </nav>

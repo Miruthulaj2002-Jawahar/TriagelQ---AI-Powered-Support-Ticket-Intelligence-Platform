@@ -4,8 +4,10 @@ import Analytics from './pages/Analytics.jsx';
 import CreateTicket from './pages/CreateTicket.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Login from './pages/Login.jsx';
+import Profile from './pages/Profile.jsx';
 import TicketDetail from './pages/TicketDetail.jsx';
 import Tickets from './pages/Tickets.jsx';
+import Users from './pages/Users.jsx';
 import './App.css';
 
 function App() {
@@ -20,6 +22,8 @@ function App() {
           <Route path="/tickets" element={<Tickets />} />
           <Route path="/create-ticket" element={<CreateTicket />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/users" element={<Users />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
 
         <Route path="/" element={<Navigate to="/login" replace />} />

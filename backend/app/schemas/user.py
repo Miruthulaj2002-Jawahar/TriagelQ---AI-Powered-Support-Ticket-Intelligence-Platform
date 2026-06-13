@@ -33,3 +33,11 @@ class UserResponse(BaseModel):
     role: UserRole
     is_active: bool
     created_at: datetime
+
+
+class UserListResponse(BaseModel):
+    id: str
+    full_name: str
+    email: EmailStr
+    role: UserRole
+    created_at: datetime

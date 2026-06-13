@@ -60,4 +60,6 @@ export const deleteTicket = (id) => api.delete(`/tickets/${id}`);
 
 export const getAnalyticsSummary = () => api.get('/analytics/summary');
 
+export const getUsers = () => api.get('/users');
+
 export default api;
