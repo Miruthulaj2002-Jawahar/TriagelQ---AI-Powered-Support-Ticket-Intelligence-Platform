@@ -50,12 +50,6 @@ def ticket_doc_to_response(ticket: dict[str, Any]) -> TicketResponse:
     )
 
 
-def get_ticket_list_filter(current_user: UserResponse) -> dict[str, Any]:
-    if current_user.role == UserRole.ADMIN:
-        return {}
-    return {"assigned_agent_id": current_user.id}
-
-
 def ensure_ticket_access(ticket: dict[str, Any], current_user: UserResponse) -> None:
     if current_user.role == UserRole.ADMIN:
         return
@@ -132,8 +126,7 @@ async def list_tickets(
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: UserResponse = Depends(get_current_user),
 ) -> list[TicketResponse]:
-    ticket_filter = get_ticket_list_filter(current_user)
-    tickets = await db.tickets.find(ticket_filter).sort("created_at", -1).to_list(length=None)
+    tickets = await db.tickets.find().sort("created_at", -1).to_list(length=None)
     return [ticket_doc_to_response(ticket) for ticket in tickets]
 
 

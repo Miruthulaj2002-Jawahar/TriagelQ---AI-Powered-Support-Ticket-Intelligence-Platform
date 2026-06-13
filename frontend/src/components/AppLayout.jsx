@@ -28,7 +28,7 @@ function AppLayout() {
           {role === 'AGENT' && (
             <>
               <NavLink to="/tickets">Tickets</NavLink>
-              <NavLink to="/tickets/create">Create Ticket</NavLink>
+              <NavLink to="/create-ticket">Create Ticket</NavLink>
             </>
           )}
         </nav>
