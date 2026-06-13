@@ -43,7 +43,16 @@ export const loginUser = async (email, password) => {
 /** @deprecated Use loginUser */
 export const login = loginUser;
 
-export const getMe = () => api.get('/auth/me');
+export const getCurrentUser = () => api.get('/auth/me');
+
+/** @deprecated Use getCurrentUser */
+export const getMe = getCurrentUser;
+
+export const changePassword = (currentPassword, newPassword) =>
+  api.post('/auth/change-password', {
+    current_password: currentPassword,
+    new_password: newPassword,
+  });
 
 export const getTickets = () => api.get('/tickets');
 

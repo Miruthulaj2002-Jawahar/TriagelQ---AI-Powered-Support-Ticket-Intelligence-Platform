@@ -1,12 +1,20 @@
 from datetime import UTC, datetime
 
+from bson import ObjectId
+from bson.errors import InvalidId
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo.errors import DuplicateKeyError
 
 from app.db.mongodb import get_database
-from app.schemas.user import Token, UserRegister, UserResponse
+from app.schemas.user import (
+    ChangePasswordRequest,
+    MessageResponse,
+    Token,
+    UserRegister,
+    UserResponse,
+)
 from app.services.security import (
     create_access_token,
     get_current_user,
@@ -84,3 +92,38 @@ async def login(
 @router.get("/me", response_model=UserResponse)
 async def me(current_user: UserResponse = Depends(get_current_user)) -> UserResponse:
     return current_user
+
+
+@router.post("/change-password", response_model=MessageResponse)
+async def change_password(
+    payload: ChangePasswordRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserResponse = Depends(get_current_user),
+) -> MessageResponse:
+    try:
+        object_id = ObjectId(current_user.id)
+    except InvalidId as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+        ) from exc
+
+    user = await db.users.find_one({"_id": object_id})
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials",
+        )
+
+    if not verify_password(payload.current_password, user["hashed_password"]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect",
+        )
+
+    await db.users.update_one(
+        {"_id": object_id},
+        {"$set": {"hashed_password": hash_password(payload.new_password)}},
+    )
+
+    return MessageResponse(message="Password changed successfully")

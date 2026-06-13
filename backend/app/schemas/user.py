@@ -41,3 +41,12 @@ class UserListResponse(BaseModel):
     email: EmailStr
     role: UserRole
     created_at: datetime
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=6, max_length=128)
+
+
+class MessageResponse(BaseModel):
+    message: str
