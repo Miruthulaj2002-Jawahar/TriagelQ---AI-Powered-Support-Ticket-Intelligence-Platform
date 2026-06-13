@@ -26,6 +26,8 @@ function getErrorMessage(error) {
 }
 
 function Tickets() {
+  const role = localStorage.getItem('role');
+  const isAgent = role === 'AGENT';
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -83,7 +85,9 @@ function Tickets() {
       <div className="tickets-header">
         <div>
           <h1>Tickets</h1>
-          <p className="tickets-subtitle">View and manage support tickets</p>
+          <p className="tickets-subtitle">
+            {isAgent ? 'View and manage your assigned tickets' : 'View and manage support tickets'}
+          </p>
         </div>
 
         <div className="tickets-header-actions">
@@ -135,7 +139,9 @@ function Tickets() {
       {loading && <p className="tickets-message">Loading tickets...</p>}
       {!loading && error && <p className="tickets-error">{error}</p>}
       {!loading && !error && tickets.length === 0 && (
-        <p className="tickets-message">No tickets found.</p>
+        <p className="tickets-message">
+          {isAgent ? 'No assigned tickets found.' : 'No tickets found.'}
+        </p>
       )}
       {!loading && !error && tickets.length > 0 && filteredTickets.length === 0 && (
         <p className="tickets-message">No tickets match your filters.</p>
@@ -154,6 +160,7 @@ function Tickets() {
                 <th>Sentiment</th>
                 <th>Assigned Queue</th>
                 <th>Created At</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -179,6 +186,11 @@ function Tickets() {
                   </td>
                   <td>{ticket.assigned_queue || '—'}</td>
                   <td>{formatDate(ticket.created_at)}</td>
+                  <td>
+                    <Link to={`/tickets/${ticket.id}`} className="view-details-link">
+                      View Details
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>

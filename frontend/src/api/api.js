@@ -49,7 +49,10 @@ export const getTickets = () => api.get('/tickets');
 
 export const createTicket = (ticketData) => api.post('/tickets', ticketData);
 
-export const getTicket = (id) => api.get(`/tickets/${id}`);
+export const getTicketById = (ticketId) => api.get(`/tickets/${ticketId}`);
+
+/** @deprecated Use getTicketById */
+export const getTicket = getTicketById;
 
 export const updateTicket = (id, ticketData) => api.put(`/tickets/${id}`, ticketData);
 

@@ -50,6 +50,12 @@ def ticket_doc_to_response(ticket: dict[str, Any]) -> TicketResponse:
     )
 
 
+def get_ticket_list_filter(current_user: UserResponse) -> dict[str, Any]:
+    if current_user.role == UserRole.ADMIN:
+        return {}
+    return {"assigned_agent_id": current_user.id}
+
+
 def ensure_ticket_access(ticket: dict[str, Any], current_user: UserResponse) -> None:
     if current_user.role == UserRole.ADMIN:
         return
@@ -126,7 +132,8 @@ async def list_tickets(
     db: AsyncIOMotorDatabase = Depends(get_database),
     current_user: UserResponse = Depends(get_current_user),
 ) -> list[TicketResponse]:
-    tickets = await db.tickets.find().sort("created_at", -1).to_list(length=None)
+    ticket_filter = get_ticket_list_filter(current_user)
+    tickets = await db.tickets.find(ticket_filter).sort("created_at", -1).to_list(length=None)
     return [ticket_doc_to_response(ticket) for ticket in tickets]
 
 
@@ -158,6 +165,14 @@ async def update_ticket(
     ensure_ticket_access(ticket, current_user)
 
     update_data = payload.model_dump(exclude_unset=True)
+
+    if current_user.role != UserRole.ADMIN:
+        disallowed_fields = set(update_data.keys()) - {"status"}
+        if disallowed_fields:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Agents can only update ticket status",
+            )
 
     if current_user.role != UserRole.ADMIN and "assigned_agent_id" in update_data:
         raise HTTPException(

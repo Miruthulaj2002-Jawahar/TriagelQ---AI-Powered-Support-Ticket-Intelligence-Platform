@@ -4,6 +4,7 @@ import Analytics from './pages/Analytics.jsx';
 import CreateTicket from './pages/CreateTicket.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Login from './pages/Login.jsx';
+import TicketDetail from './pages/TicketDetail.jsx';
 import Tickets from './pages/Tickets.jsx';
 import './App.css';
 
@@ -15,6 +16,7 @@ function App() {
 
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/tickets/:id" element={<TicketDetail />} />
           <Route path="/tickets" element={<Tickets />} />
           <Route path="/create-ticket" element={<CreateTicket />} />
           <Route path="/analytics" element={<Analytics />} />
