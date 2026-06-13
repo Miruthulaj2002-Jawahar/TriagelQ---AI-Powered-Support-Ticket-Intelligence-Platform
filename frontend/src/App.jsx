@@ -1,5 +1,10 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import AppLayout from './components/AppLayout.jsx';
+import Analytics from './pages/Analytics.jsx';
+import CreateTicket from './pages/CreateTicket.jsx';
+import Dashboard from './pages/Dashboard.jsx';
 import Login from './pages/Login.jsx';
+import Tickets from './pages/Tickets.jsx';
 import './App.css';
 
 function App() {
@@ -7,8 +12,14 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
-        <Route path="/dashboard" element={<p>Dashboard (coming soon)</p>} />
-        <Route path="/tickets" element={<p>Tickets (coming soon)</p>} />
+
+        <Route element={<AppLayout />}>
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/tickets" element={<Tickets />} />
+          <Route path="/tickets/create" element={<CreateTicket />} />
+          <Route path="/analytics" element={<Analytics />} />
+        </Route>
+
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
