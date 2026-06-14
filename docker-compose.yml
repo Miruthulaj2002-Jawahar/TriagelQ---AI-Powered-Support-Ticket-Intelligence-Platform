@@ -1,0 +1,62 @@
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: triageiq-mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - triageiq_mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: triageiq-backend
+    ports:
+      - "8000:8000"
+    environment:
+      # Primary names used by app/core/config.py (pydantic-settings)
+      MONGODB_URI: mongodb://mongo:27017/triageiq
+      MONGODB_DB: triageiq
+      JWT_SECRET: ${JWT_SECRET:-docker-dev-jwt-secret-change-me}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
+      APP_ENV: ${APP_ENV:-development}
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      # Common alias names (ignored by app unless mapped in config; kept for tooling/docs)
+      MONGO_URI: mongodb://mongo:27017/triageiq
+      MONGODB_URL: mongodb://mongo:27017/triageiq
+      DATABASE_NAME: triageiq
+      MONGO_DB_NAME: triageiq
+      SECRET_KEY: ${JWT_SECRET:-docker-dev-jwt-secret-change-me}
+      JWT_SECRET_KEY: ${JWT_SECRET:-docker-dev-jwt-secret-change-me}
+      ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
+    depends_on:
+      mongo:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: triageiq-frontend
+    ports:
+      - "5173:5173"
+    environment:
+      # Browser runs on host; API calls use localhost mapped backend port.
+      VITE_API_BASE_URL: http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  triageiq_mongo_data:
