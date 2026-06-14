@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getTicketById, updateTicket } from '../api/api.js';
+import { renderDetailValue } from '../utils/badges.jsx';
 import './TicketDetail.css';
 
 const STATUS_OPTIONS = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
@@ -42,10 +43,10 @@ function buildDetailFields(ticket) {
     { label: 'Title', value: ticket.title },
     { label: 'Description', value: ticket.description },
     { label: 'Customer Email', value: ticket.customer_email },
-    { label: 'Status', value: ticket.status },
+    { label: 'Status', value: ticket.status, badge: 'status' },
     { label: 'Category', value: ticket.category },
-    { label: 'Priority', value: ticket.priority },
-    { label: 'Sentiment', value: ticket.sentiment },
+    { label: 'Priority', value: ticket.priority, badge: 'priority' },
+    { label: 'Sentiment', value: ticket.sentiment, badge: 'sentiment' },
     { label: 'Confidence', value: getConfidence(ticket) },
     { label: 'Explanation', value: getExplanation(ticket) },
     { label: 'Assigned Queue', value: ticket.assigned_queue },
@@ -163,7 +164,7 @@ function TicketDetail() {
               {detailFields.map((field) => (
                 <div key={field.label} className="detail-row">
                   <dt>{field.label}</dt>
-                  <dd>{field.value}</dd>
+                  <dd>{renderDetailValue(field)}</dd>
                 </div>
               ))}
             </dl>

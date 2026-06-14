@@ -19,19 +19,35 @@ function AppLayout() {
         <nav className="navbar-links">
           {role === 'ADMIN' && (
             <>
-              <NavLink to="/dashboard">Dashboard</NavLink>
-              <NavLink to="/tickets">Tickets</NavLink>
-              <NavLink to="/analytics">Analytics</NavLink>
-              <NavLink to="/users">Users</NavLink>
-              <NavLink to="/profile">Profile</NavLink>
+              <NavLink to="/dashboard" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                Dashboard
+              </NavLink>
+              <NavLink to="/tickets" end className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                Tickets
+              </NavLink>
+              <NavLink to="/analytics" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                Analytics
+              </NavLink>
+              <NavLink to="/users" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                Users
+              </NavLink>
+              <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                Profile
+              </NavLink>
             </>
           )}
 
           {role === 'AGENT' && (
             <>
-              <NavLink to="/tickets">Tickets</NavLink>
-              <NavLink to="/create-ticket">Create Ticket</NavLink>
-              <NavLink to="/profile">Profile</NavLink>
+              <NavLink to="/tickets" end className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                Tickets
+              </NavLink>
+              <NavLink to="/create-ticket" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                Create Ticket
+              </NavLink>
+              <NavLink to="/profile" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                Profile
+              </NavLink>
             </>
           )}
         </nav>

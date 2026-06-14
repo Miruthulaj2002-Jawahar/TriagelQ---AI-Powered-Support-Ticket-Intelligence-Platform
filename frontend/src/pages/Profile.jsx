@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getCurrentUser, getTickets, changePassword } from '../api/api.js';
+import { PriorityBadge, SentimentBadge, StatusBadge } from '../utils/badges.jsx';
 import './Profile.css';
 
 function formatDate(value) {
@@ -285,12 +286,14 @@ function Profile() {
                         <td className="profile-ticket-title">{ticket.title}</td>
                         <td>{ticket.customer_email}</td>
                         <td>
-                          <span className={`profile-badge profile-badge-${ticket.status?.toLowerCase()}`}>
-                            {ticket.status?.replace('_', ' ')}
-                          </span>
+                          <StatusBadge value={ticket.status} />
                         </td>
-                        <td>{ticket.priority || '—'}</td>
-                        <td>{ticket.sentiment || '—'}</td>
+                        <td>
+                          <PriorityBadge value={ticket.priority} />
+                        </td>
+                        <td>
+                          <SentimentBadge value={ticket.sentiment} />
+                        </td>
                         <td>{formatDate(ticket.created_at)}</td>
                         <td>
                           <Link to={`/tickets/${ticket.id}`} className="profile-view-link">

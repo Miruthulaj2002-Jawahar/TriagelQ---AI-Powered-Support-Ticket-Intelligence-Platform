@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { createTicket } from '../api/api.js';
+import { renderDetailValue } from '../utils/badges.jsx';
 import './CreateTicket.css';
 
 const EMPTY_FORM = {
@@ -94,10 +95,10 @@ function CreateTicket() {
         { label: 'Title', value: createdTicket.title },
         { label: 'Description', value: createdTicket.description },
         { label: 'Customer Email', value: createdTicket.customer_email },
-        { label: 'Status', value: createdTicket.status },
+        { label: 'Status', value: createdTicket.status, badge: 'status' },
         { label: 'Category', value: createdTicket.category },
-        { label: 'Priority', value: createdTicket.priority },
-        { label: 'Sentiment', value: createdTicket.sentiment },
+        { label: 'Priority', value: createdTicket.priority, badge: 'priority' },
+        { label: 'Sentiment', value: createdTicket.sentiment, badge: 'sentiment' },
         { label: 'Confidence', value: confidence },
         { label: 'Explanation', value: explanation },
         { label: 'Assigned Queue', value: createdTicket.assigned_queue },
@@ -169,7 +170,7 @@ function CreateTicket() {
               {detailFields.map((field) => (
                 <div key={field.label} className="detail-row">
                   <dt>{field.label}</dt>
-                  <dd>{field.value}</dd>
+                  <dd>{renderDetailValue(field)}</dd>
                 </div>
               ))}
             </dl>

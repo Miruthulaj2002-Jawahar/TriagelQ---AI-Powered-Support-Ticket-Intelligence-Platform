@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getTickets } from '../api/api.js';
+import { PriorityBadge, SentimentBadge, StatusBadge } from '../utils/badges.jsx';
 import './Tickets.css';
 
 const STATUS_OPTIONS = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
@@ -169,20 +170,14 @@ function Tickets() {
                   <td className="ticket-title">{ticket.title}</td>
                   <td>{ticket.customer_email}</td>
                   <td>
-                    <span className={`badge badge-status badge-${ticket.status?.toLowerCase()}`}>
-                      {ticket.status?.replace('_', ' ')}
-                    </span>
+                    <StatusBadge value={ticket.status} />
                   </td>
                   <td>{ticket.category || '—'}</td>
                   <td>
-                    <span className={`badge badge-priority badge-${ticket.priority?.toLowerCase()}`}>
-                      {ticket.priority}
-                    </span>
+                    <PriorityBadge value={ticket.priority} />
                   </td>
                   <td>
-                    <span className={`badge badge-sentiment badge-${ticket.sentiment?.toLowerCase()}`}>
-                      {ticket.sentiment}
-                    </span>
+                    <SentimentBadge value={ticket.sentiment} />
                   </td>
                   <td>{ticket.assigned_queue || '—'}</td>
                   <td>{formatDate(ticket.created_at)}</td>
