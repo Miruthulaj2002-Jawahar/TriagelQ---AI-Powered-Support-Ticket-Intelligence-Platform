@@ -40,6 +40,7 @@ class UserListResponse(BaseModel):
     full_name: str
     email: EmailStr
     role: UserRole
+    is_active: bool
     created_at: datetime
 
 

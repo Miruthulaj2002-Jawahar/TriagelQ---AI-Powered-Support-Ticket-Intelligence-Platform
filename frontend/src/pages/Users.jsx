@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { createUser, getUsers } from '../api/api.js';
+import { createUser, deactivateUser, getCurrentUser, getUsers } from '../api/api.js';
 import './Users.css';
 
 const EMPTY_FORM = {
@@ -43,6 +43,10 @@ function Users() {
   const [createError, setCreateError] = useState('');
   const [createSuccess, setCreateSuccess] = useState('');
   const [creating, setCreating] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState('');
+  const [deactivateError, setDeactivateError] = useState('');
+  const [deactivateSuccess, setDeactivateSuccess] = useState('');
+  const [deactivatingUserId, setDeactivatingUserId] = useState('');
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -62,6 +66,9 @@ function Users() {
   useEffect(() => {
     if (isAdmin) {
       fetchUsers();
+      getCurrentUser()
+        .then((response) => setCurrentUserId(response.data.id))
+        .catch(() => setCurrentUserId(''));
     }
   }, [fetchUsers, isAdmin]);
 
@@ -106,6 +113,30 @@ function Users() {
       setCreateError(getErrorMessage(err, 'Failed to create user.'));
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleDeactivateUser = async (user) => {
+    setDeactivateError('');
+    setDeactivateSuccess('');
+
+    const confirmed = window.confirm(
+      `Deactivate ${getDisplayName(user)} (${user.email})? They will no longer be able to log in.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    setDeactivatingUserId(user.id);
+
+    try {
+      await deactivateUser(user.id);
+      setDeactivateSuccess(`${getDisplayName(user)} has been deactivated.`);
+      await fetchUsers();
+    } catch (err) {
+      setDeactivateError(getErrorMessage(err, 'Failed to deactivate user.'));
+    } finally {
+      setDeactivatingUserId('');
     }
   };
 
@@ -203,6 +234,8 @@ function Users() {
       )}
 
       {!showCreateForm && createSuccess && <p className="profile-success">{createSuccess}</p>}
+      {deactivateSuccess && <p className="profile-success">{deactivateSuccess}</p>}
+      {deactivateError && <p className="users-error">{deactivateError}</p>}
 
       {loading && <p className="users-message">Loading users...</p>}
       {!loading && error && <p className="users-error">{error}</p>}
@@ -218,11 +251,18 @@ function Users() {
                 <th>Name</th>
                 <th>Email</th>
                 <th>Role</th>
+                <th>Status</th>
                 <th>Created At</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {users.map((user) => {
+                const isActive = user.is_active !== false;
+                const isSelf = user.id === currentUserId;
+                const canDeactivate = isActive && !isSelf;
+
+                return (
                 <tr key={user.id}>
                   <td className="users-name">{getDisplayName(user)}</td>
                   <td>{user.email}</td>
@@ -231,9 +271,33 @@ function Users() {
                       {user.role}
                     </span>
                   </td>
+                  <td>
+                    <span
+                      className={`users-status-badge ${
+                        isActive ? 'users-status-active' : 'users-status-inactive'
+                      }`}
+                    >
+                      {isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
                   <td>{formatDate(user.created_at)}</td>
+                  <td>
+                    {canDeactivate ? (
+                      <button
+                        type="button"
+                        className="btn-secondary users-deactivate-button"
+                        onClick={() => handleDeactivateUser(user)}
+                        disabled={deactivatingUserId === user.id}
+                      >
+                        {deactivatingUserId === user.id ? 'Deactivating...' : 'Deactivate'}
+                      </button>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -535,6 +535,31 @@
   color: #93c5fd;
 }
 
+.users-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.625rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.users-status-active {
+  background: rgba(74, 222, 128, 0.15);
+  color: #86efac;
+}
+
+.users-status-inactive {
+  background: rgba(156, 163, 175, 0.15);
+  color: #d1d5db;
+}
+
+.users-deactivate-button {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
 /* Analytics charts */
 .analytics-charts {
   display: grid;

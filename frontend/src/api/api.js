@@ -73,4 +73,6 @@ export const getUsers = () => api.get('/users');
 
 export const createUser = (userData) => api.post('/users', userData);
 
+export const deactivateUser = (userId) => api.delete(`/users/${userId}`);
+
 export default api;
