@@ -1,14 +1,21 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getUsers } from '../api/api.js';
+import { createUser, getUsers } from '../api/api.js';
 import './Users.css';
+
+const EMPTY_FORM = {
+  name: '',
+  email: '',
+  password: '',
+  role: 'AGENT',
+};
 
 function formatDate(value) {
   if (!value) return '—';
   return new Date(value).toLocaleString();
 }
 
-function getErrorMessage(error) {
+function getErrorMessage(error, fallback = 'Failed to load users.') {
   const detail = error.response?.data?.detail;
 
   if (typeof detail === 'string') {
@@ -19,7 +26,7 @@ function getErrorMessage(error) {
     return detail.map((item) => item.msg).join(', ');
   }
 
-  return 'Failed to load users.';
+  return fallback;
 }
 
 function getDisplayName(user) {
@@ -31,6 +38,11 @@ function Users() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(isAdmin);
   const [error, setError] = useState('');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [createError, setCreateError] = useState('');
+  const [createSuccess, setCreateSuccess] = useState('');
+  const [creating, setCreating] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -53,6 +65,50 @@ function Users() {
     }
   }, [fetchUsers, isAdmin]);
 
+  const handleFormChange = (event) => {
+    const { name, value } = event.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCreateUser = async (event) => {
+    event.preventDefault();
+    setCreateError('');
+    setCreateSuccess('');
+
+    const name = form.name.trim();
+    const email = form.email.trim();
+    const password = form.password;
+
+    if (!name || !email || !password || !form.role) {
+      setCreateError('All fields are required.');
+      return;
+    }
+
+    if (password.length < 8) {
+      setCreateError('Password must be at least 8 characters.');
+      return;
+    }
+
+    setCreating(true);
+
+    try {
+      await createUser({
+        name,
+        email,
+        password,
+        role: form.role,
+      });
+      setCreateSuccess('User created successfully.');
+      setForm(EMPTY_FORM);
+      setShowCreateForm(false);
+      await fetchUsers();
+    } catch (err) {
+      setCreateError(getErrorMessage(err, 'Failed to create user.'));
+    } finally {
+      setCreating(false);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="users-page">
@@ -72,12 +128,81 @@ function Users() {
       <div className="users-header">
         <div>
           <h1>Users</h1>
-          <p className="users-subtitle">View registered internal dashboard users</p>
+          <p className="users-subtitle">Manage internal dashboard users</p>
         </div>
-        <button type="button" className="users-refresh" onClick={fetchUsers} disabled={loading}>
-          Refresh
-        </button>
+        <div className="users-header-actions">
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => {
+              setShowCreateForm((prev) => !prev);
+              setCreateError('');
+              setCreateSuccess('');
+            }}
+          >
+            {showCreateForm ? 'Cancel' : 'Create User'}
+          </button>
+          <button type="button" className="users-refresh" onClick={fetchUsers} disabled={loading}>
+            Refresh
+          </button>
+        </div>
       </div>
+
+      {showCreateForm && (
+        <section className="users-section">
+          <h2>Create User</h2>
+          <form className="users-create-form" onSubmit={handleCreateUser}>
+            <label htmlFor="name">Name</label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              value={form.name}
+              onChange={handleFormChange}
+              placeholder="Full name"
+              required
+            />
+
+            <label htmlFor="email">Email</label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={handleFormChange}
+              placeholder="user@example.com"
+              required
+            />
+
+            <label htmlFor="password">Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              value={form.password}
+              onChange={handleFormChange}
+              placeholder="Minimum 8 characters"
+              minLength={8}
+              required
+            />
+
+            <label htmlFor="role">Role</label>
+            <select id="role" name="role" value={form.role} onChange={handleFormChange} required>
+              <option value="AGENT">AGENT</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+
+            {createError && <p className="users-error">{createError}</p>}
+            {createSuccess && <p className="profile-success">{createSuccess}</p>}
+
+            <button type="submit" className="btn-primary" disabled={creating}>
+              {creating ? 'Creating User...' : 'Create User'}
+            </button>
+          </form>
+        </section>
+      )}
+
+      {!showCreateForm && createSuccess && <p className="profile-success">{createSuccess}</p>}
 
       {loading && <p className="users-message">Loading users...</p>}
       {!loading && error && <p className="users-error">{error}</p>}

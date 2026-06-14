@@ -43,7 +43,8 @@
 
 .tickets-header-actions,
 .dashboard-actions,
-.create-ticket-actions {
+.create-ticket-actions,
+.users-header-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
@@ -183,13 +184,15 @@
 }
 
 .profile-section,
-.dashboard-actions {
+.dashboard-actions,
+.users-section {
   margin-bottom: 1.75rem;
 }
 
 .profile-section h2,
 .ticket-detail-panel h2,
-.classification-panel h2 {
+.classification-panel h2,
+.users-section h2 {
   margin-bottom: 1rem;
 }
 
@@ -197,6 +200,7 @@
 .login-form,
 .create-ticket-form,
 .profile-password-form,
+.users-create-form,
 .ticket-update-form,
 .tickets-filters {
   display: flex;
@@ -205,7 +209,8 @@
 }
 
 .create-ticket-form,
-.profile-password-form {
+.profile-password-form,
+.users-create-form {
   padding: 1.25rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
@@ -216,6 +221,7 @@
 .login-form label,
 .create-ticket-form label,
 .profile-password-form label,
+.users-create-form label,
 .ticket-update-form label {
   font-size: 0.875rem;
   font-weight: 500;
@@ -227,6 +233,8 @@
 .create-ticket-form input,
 .create-ticket-form textarea,
 .profile-password-form input,
+.users-create-form input,
+.users-create-form select,
 .ticket-update-form input,
 .ticket-update-form select,
 .tickets-filters input,
@@ -244,6 +252,8 @@
 .create-ticket-form input:focus,
 .create-ticket-form textarea:focus,
 .profile-password-form input:focus,
+.users-create-form input:focus,
+.users-create-form select:focus,
 .ticket-update-form input:focus,
 .ticket-update-form select:focus,
 .tickets-filters input:focus,

@@ -43,6 +43,21 @@ class UserListResponse(BaseModel):
     created_at: datetime
 
 
+class UserCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=200)
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+    role: UserRole
+
+
+class UserCreateResponse(BaseModel):
+    id: str
+    name: str
+    email: EmailStr
+    role: UserRole
+    created_at: datetime
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(..., min_length=1)
     new_password: str = Field(..., min_length=6, max_length=128)

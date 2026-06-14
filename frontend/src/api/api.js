@@ -71,4 +71,6 @@ export const getAnalyticsSummary = () => api.get('/analytics/summary');
 
 export const getUsers = () => api.get('/users');
 
+export const createUser = (userData) => api.post('/users', userData);
+
 export default api;
