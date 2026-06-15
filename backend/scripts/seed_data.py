@@ -1,18 +1,28 @@
 """
 Seed demo users and support tickets for TriageIQ.
 
-Run from the backend directory:
+Run from the backend directory (local):
     python scripts/seed_data.py
 
-Optional flags:
-    python scripts/seed_data.py --reset-seed   # delete existing SEED tickets, then re-seed
+With Docker Compose (from repo root):
+    docker compose exec backend python scripts/seed_data.py
+
+Recreate seed tickets (removes existing SEED tickets first):
+    python scripts/seed_data.py --reset-seed
+    docker compose exec backend python scripts/seed_data.py --reset-seed
+
+Idempotent by default: existing demo users and tickets whose titles start with
+"SEED - " are skipped, so re-running does not create duplicates.
+
+Requires MONGODB_URI and JWT_SECRET (see .env.example). Demo logins:
+  Admin -> admin@triageiq.com / Admin@123
+  Agent -> agent@triageiq.com / Agent@123
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -23,8 +33,8 @@ sys.path.insert(0, str(BACKEND_ROOT))
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from app.core.config import settings
-from app.services.classifier import classify_ticket
 from app.services.security import hash_password
+from app.services.ticket_mapping import compute_effective_category, compute_effective_priority
 
 SEED_TICKET_PREFIX = "SEED - "
 
@@ -48,10 +58,56 @@ QUEUE_BY_CATEGORY = {
     "Technical": "Technical Support",
     "Account": "Account Support",
     "Feature Request": "Product Team",
-    "Complaint": "Escalation Team",
+    "Complaint": "Escalations",
 }
 
-# Realistic ticket templates: 11 per category -> 55 seed tickets total.
+ASSIGNED_QUEUES = [
+    "Billing Support",
+    "Technical Support",
+    "Account Support",
+    "Product Team",
+    "Escalations",
+    "Customer Success",
+    "General Support",
+]
+
+# ticket_index -> override spec (only applied when values differ from AI classification)
+MANUAL_OVERRIDE_SPECS: dict[int, dict[str, str]] = {
+    0: {
+        "category": "Technical",
+        "reason": "Customer confirmed this is a checkout API failure, not billing.",
+    },
+    4: {
+        "priority": "URGENT",
+        "reason": "Enterprise customer; billing block is revenue-critical.",
+    },
+    11: {
+        "category": "Complaint",
+        "reason": "Repeated outage reports escalated as a service complaint.",
+    },
+    18: {
+        "priority": "HIGH",
+        "reason": "Account lock is blocking an entire team from SSO login.",
+    },
+    27: {
+        "category": "Technical",
+        "reason": "Export feature request depends on a broken reports API.",
+    },
+    36: {
+        "priority": "MEDIUM",
+        "reason": "Customer agreed to lower urgency after workaround was shared.",
+    },
+    44: {
+        "category": "Billing",
+        "reason": "Complaint is specifically about incorrect invoice totals.",
+    },
+    52: {
+        "category": "Technical",
+        "priority": "URGENT",
+        "reason": "Production outage misclassified; both category and priority corrected.",
+    },
+}
+
 TICKET_TEMPLATES: dict[str, list[tuple[str, str]]] = {
     "Billing": [
         ("Duplicate subscription charge", "Customer was charged twice for the monthly subscription and needs an urgent refund."),
@@ -125,30 +181,82 @@ PRIORITY_CYCLE = ["LOW", "MEDIUM", "HIGH", "URGENT"]
 SENTIMENT_CYCLE = ["POSITIVE", "NEUTRAL", "NEGATIVE"]
 
 
-def load_routing_rules() -> dict[str, str]:
-    """Load queue routing rules from config when available."""
-    rules_path = BACKEND_ROOT / "app" / "config" / "routing_rules.json"
-    if not rules_path.is_file() or rules_path.stat().st_size == 0:
+def resolve_assigned_queue(
+    category: str,
+    priority: str,
+    sentiment: str,
+    ticket_index: int,
+) -> str:
+    """Pick a realistic queue with category defaults and cross-team variety."""
+    default = QUEUE_BY_CATEGORY.get(category, "General Support")
+
+    if category == "Complaint" or (category == "Technical" and priority == "URGENT"):
+        return "Escalations"
+    if sentiment == "POSITIVE" and ticket_index % 4 == 0:
+        return "Customer Success"
+    if category == "Feature Request" and ticket_index % 3 == 1:
+        return "Product Team"
+    if priority == "LOW" and sentiment == "NEUTRAL" and ticket_index % 5 == 2:
+        return "General Support"
+
+    return default if ticket_index % 7 != 3 else ASSIGNED_QUEUES[ticket_index % len(ASSIGNED_QUEUES)]
+
+
+def build_ai_explanation(category: str, priority: str, sentiment: str, confidence: float) -> str:
+    return (
+        f"AI classified as {category} with {priority} priority and {sentiment} sentiment "
+        f"(confidence {confidence:.2f}). Keyword and routing rules matched support queue patterns."
+    )
+
+
+def apply_manual_override(
+    ai_category: str,
+    ai_priority: str,
+    override_spec: dict[str, str],
+    *,
+    overridden_by: str,
+    overridden_at: datetime,
+) -> dict:
+    category_override = override_spec.get("category")
+    priority_override = override_spec.get("priority")
+
+    if category_override == ai_category:
+        category_override = None
+    if priority_override == ai_priority:
+        priority_override = None
+
+    preview = {
+        "ai_category": ai_category,
+        "ai_priority": ai_priority,
+        "category_override": category_override,
+        "priority_override": priority_override,
+    }
+    ai_fields = {"ai_category": ai_category, "ai_priority": ai_priority}
+
+    effective_category = compute_effective_category(preview, ai_fields)
+    effective_priority = compute_effective_priority(preview, ai_fields)
+
+    has_real_override = (
+        category_override is not None and category_override != ai_category
+    ) or (priority_override is not None and priority_override != ai_priority)
+
+    if not has_real_override:
         return {}
 
-    try:
-        data = json.loads(rules_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return {}
-
-    if isinstance(data, dict):
-        return {str(key): str(value) for key, value in data.items()}
-    return {}
-
-
-def resolve_assigned_queue(category: str, routing_rules: dict[str, str]) -> str:
-    return routing_rules.get(category) or QUEUE_BY_CATEGORY.get(category, "General Support")
+    return {
+        "category_override": category_override,
+        "priority_override": priority_override,
+        "override_reason": override_spec.get("reason"),
+        "overridden_by": overridden_by,
+        "overridden_at": overridden_at,
+        "category": effective_category,
+        "priority": effective_priority,
+    }
 
 
 def build_seed_tickets() -> list[dict]:
     """Build 55 varied seed tickets (11 per category)."""
     tickets: list[dict] = []
-    routing_rules = load_routing_rules()
     ticket_index = 0
 
     for category, templates in TICKET_TEMPLATES.items():
@@ -156,18 +264,11 @@ def build_seed_tickets() -> list[dict]:
             status = STATUS_CYCLE[ticket_index % len(STATUS_CYCLE)]
             priority = PRIORITY_CYCLE[(ticket_index + local_index) % len(PRIORITY_CYCLE)]
             sentiment = SENTIMENT_CYCLE[(ticket_index + local_index * 2) % len(SENTIMENT_CYCLE)]
-            assigned_queue = resolve_assigned_queue(category, routing_rules)
+            assigned_queue = resolve_assigned_queue(category, priority, sentiment, ticket_index)
+            confidence = round(0.78 + ((ticket_index * 7) % 18) / 100, 2)
 
             title = f"{SEED_TICKET_PREFIX}{category} #{local_index + 1:02d}: {subject}"
-            classification = classify_ticket(title, description)
-
-            confidence = round(0.78 + ((ticket_index * 7) % 18) / 100, 2)
-            explanation = (
-                f"Seed classification: category={category}, priority={priority}, "
-                f"sentiment={sentiment}. Keyword engine also suggests "
-                f"{classification['category']} / {classification['priority']} / "
-                f"{classification['sentiment']} -> queue {classification['assigned_queue']}."
-            )
+            ai_explanation = build_ai_explanation(category, priority, sentiment, confidence)
 
             tickets.append(
                 {
@@ -175,14 +276,19 @@ def build_seed_tickets() -> list[dict]:
                     "description": description,
                     "customer_email": f"seed.customer{ticket_index + 1:02d}@example.com",
                     "status": status,
+                    "ai_category": category,
+                    "ai_priority": priority,
+                    "ai_sentiment": sentiment,
+                    "ai_confidence": confidence,
+                    "ai_explanation": ai_explanation,
                     "category": category,
                     "priority": priority,
                     "sentiment": sentiment,
                     "assigned_queue": assigned_queue,
-                    "confidence": confidence,
-                    "explanation": explanation,
                     "assign_to_agent": ticket_index % 3 != 0,
                     "created_by_admin": ticket_index % 5 != 4,
+                    "override_spec": MANUAL_OVERRIDE_SPECS.get(ticket_index),
+                    "override_by_admin": ticket_index % 2 == 0,
                     "day_offset": 45 - (ticket_index % 45),
                     "hour_offset": (ticket_index * 5) % 24,
                 }
@@ -225,11 +331,12 @@ async def delete_seed_tickets(db) -> int:
     return result.deleted_count
 
 
-async def seed_tickets(db, user_ids: dict[str, str], tickets: list[dict]) -> tuple[int, int]:
+async def seed_tickets(db, user_ids: dict[str, str], tickets: list[dict]) -> tuple[int, int, int]:
     admin_id = user_ids["ADMIN"]
     agent_id = user_ids["AGENT"]
     created_count = 0
     skipped_count = 0
+    override_count = 0
     now = datetime.now(UTC)
 
     for ticket in tickets:
@@ -251,25 +358,46 @@ async def seed_tickets(db, user_ids: dict[str, str], tickets: list[dict]) -> tup
             "status": ticket["status"],
             "category": ticket["category"],
             "priority": ticket["priority"],
-            "sentiment": ticket["sentiment"],
+            "sentiment": ticket["ai_sentiment"],
             "assigned_queue": ticket["assigned_queue"],
-            "confidence": ticket["confidence"],
-            "classification_confidence": ticket["confidence"],
-            "explanation": ticket["explanation"],
-            "classification_explanation": ticket["explanation"],
+            "ai_category": ticket["ai_category"],
+            "ai_priority": ticket["ai_priority"],
+            "ai_sentiment": ticket["ai_sentiment"],
+            "ai_confidence": ticket["ai_confidence"],
+            "ai_explanation": ticket["ai_explanation"],
             "assigned_agent_id": assigned_agent_id,
             "created_by": created_by,
             "created_at": created_at,
             "updated_at": updated_at,
         }
 
+        override_spec = ticket.get("override_spec")
+        if override_spec:
+            overrider_id = admin_id if ticket["override_by_admin"] else agent_id
+            override_fields = apply_manual_override(
+                ticket["ai_category"],
+                ticket["ai_priority"],
+                override_spec,
+                overridden_by=overrider_id,
+                overridden_at=updated_at + timedelta(hours=1),
+            )
+            if override_fields:
+                ticket_doc.update(override_fields)
+                override_count += 1
+
         await db.tickets.insert_one(ticket_doc)
         created_count += 1
 
-    return created_count, skipped_count
+    return created_count, skipped_count, override_count
 
 
-def print_summary(created_count: int, skipped_count: int, total_defined: int, reset_count: int) -> None:
+def print_summary(
+    created_count: int,
+    skipped_count: int,
+    override_count: int,
+    total_defined: int,
+    reset_count: int,
+) -> None:
     print()
     print("=" * 60)
     print("TriageIQ seed data complete")
@@ -282,12 +410,12 @@ def print_summary(created_count: int, skipped_count: int, total_defined: int, re
     if reset_count:
         print(f"Seed tickets removed (--reset-seed): {reset_count}")
     print(f"Tickets created: {created_count}")
+    print(f"Tickets with manual overrides: {override_count}")
     print(f"Tickets skipped (already existed): {skipped_count}")
     print(f"Total seed tickets defined: {total_defined}")
     print()
-    print("Note: Re-running this script is safe. Existing demo users and")
-    print("SEED tickets are not duplicated. Use --reset-seed to recreate")
-    print("seed tickets only.")
+    print("Re-running is safe: existing SEED tickets are skipped.")
+    print("Use --reset-seed to delete and recreate seed tickets.")
     print("=" * 60)
 
 
@@ -311,8 +439,8 @@ async def run_seed(reset_seed: bool) -> None:
             raise RuntimeError("Failed to resolve demo user IDs.")
 
         print("Seeding support tickets...")
-        created_count, skipped_count = await seed_tickets(db, user_ids, tickets)
-        print_summary(created_count, skipped_count, len(tickets), reset_count)
+        created_count, skipped_count, override_count = await seed_tickets(db, user_ids, tickets)
+        print_summary(created_count, skipped_count, override_count, len(tickets), reset_count)
     finally:
         client.close()
 
