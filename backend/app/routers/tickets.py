@@ -11,9 +11,7 @@ from app.schemas.ticket import (
     ALLOWED_TICKET_CATEGORIES,
     TicketCreate,
     TicketOverrideRequest,
-    TicketPriority,
     TicketResponse,
-    TicketSentiment,
     TicketStatus,
     TicketUpdate,
 )
@@ -26,7 +24,6 @@ from app.services.ticket_mapping import (
     compute_effective_priority,
     resolve_ai_fields,
     ticket_doc_to_response,
-    ticket_has_real_override,
 )
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
