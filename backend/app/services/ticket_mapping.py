@@ -109,6 +109,8 @@ def ticket_doc_to_response(
     *,
     overridden_by_name: str | None = None,
     overridden_by_email: str | None = None,
+    assigned_agent_email: str | None = None,
+    assigned_agent_name: str | None = None,
 ) -> TicketResponse:
     ai_fields = resolve_ai_fields(ticket)
     effective_category = compute_effective_category(ticket, ai_fields)
@@ -126,6 +128,8 @@ def ticket_doc_to_response(
         sentiment=TicketSentiment(ticket["sentiment"]),
         assigned_queue=ticket.get("assigned_queue"),
         assigned_agent_id=ticket.get("assigned_agent_id"),
+        assigned_agent_email=assigned_agent_email,
+        assigned_agent_name=assigned_agent_name,
         created_by=ticket["created_by"],
         created_at=ticket["created_at"],
         updated_at=ticket["updated_at"],

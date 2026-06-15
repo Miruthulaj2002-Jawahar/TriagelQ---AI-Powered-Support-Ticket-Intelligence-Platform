@@ -16,6 +16,7 @@ from app.schemas.ticket import (
     TicketUpdate,
 )
 from app.schemas.user import UserResponse, UserRole
+from app.services.assignment import resolve_agent_assignment
 from app.services.classifier import classify_ticket
 from app.services.security import get_current_user, require_admin, require_agent_or_admin
 from app.services.ticket_mapping import (
@@ -97,11 +98,48 @@ async def enrich_ticket_response(
             overridden_by_name = user.get("full_name")
             overridden_by_email = user.get("email")
 
+    assigned_agent_email = ticket.get("assigned_agent_email")
+    assigned_agent_name = None
+    assigned_agent_id = ticket.get("assigned_agent_id")
+
+    if assigned_agent_id and not assigned_agent_email:
+        try:
+            agent = await db.users.find_one({"_id": ObjectId(assigned_agent_id)})
+        except InvalidId:
+            agent = None
+        if agent:
+            assigned_agent_email = agent.get("email")
+            assigned_agent_name = agent.get("full_name")
+    elif assigned_agent_id:
+        try:
+            agent = await db.users.find_one({"_id": ObjectId(assigned_agent_id)})
+        except InvalidId:
+            agent = None
+        if agent:
+            assigned_agent_name = agent.get("full_name")
+
     return ticket_doc_to_response(
         ticket,
         overridden_by_name=overridden_by_name,
         overridden_by_email=overridden_by_email,
+        assigned_agent_email=assigned_agent_email,
+        assigned_agent_name=assigned_agent_name,
     )
+
+
+def resolve_assigned_agent_id_on_create(
+    payload: TicketCreate,
+    current_user: UserResponse,
+) -> str | None:
+    if current_user.role == UserRole.AGENT:
+        if payload.assigned_agent_id and payload.assigned_agent_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Agents cannot assign tickets to other users",
+            )
+        return current_user.id
+
+    return payload.assigned_agent_id
 
 
 def validate_override_category(category: str) -> str:
@@ -173,9 +211,11 @@ async def create_ticket(
     sentiment = payload.sentiment.value if payload.sentiment else classification["sentiment"]
     assigned_queue = payload.assigned_queue or classification["assigned_queue"]
 
-    assigned_agent_id = payload.assigned_agent_id
-    if assigned_agent_id is None and current_user.role == UserRole.AGENT:
-        assigned_agent_id = current_user.id
+    assigned_agent_id = resolve_assigned_agent_id_on_create(payload, current_user)
+    assigned_agent_id, assigned_agent_email = await resolve_agent_assignment(
+        db,
+        assigned_agent_id,
+    )
 
     now = datetime.now(UTC)
     ai_fields = build_ai_storage_fields(
@@ -195,6 +235,7 @@ async def create_ticket(
         "sentiment": sentiment,
         "assigned_queue": assigned_queue,
         "assigned_agent_id": assigned_agent_id,
+        "assigned_agent_email": assigned_agent_email,
         "created_by": current_user.id,
         "created_at": now,
         "updated_at": now,
@@ -219,7 +260,7 @@ async def list_tickets(
 ) -> list[TicketResponse]:
     ticket_filter = get_ticket_list_filter(current_user)
     tickets = await db.tickets.find(ticket_filter).sort("created_at", -1).to_list(length=None)
-    return [ticket_doc_to_response(ticket) for ticket in tickets]
+    return [await enrich_ticket_response(db, ticket) for ticket in tickets]
 
 
 @router.get("/{ticket_id}", response_model=TicketResponse)
@@ -311,11 +352,18 @@ async def update_ticket(
                 detail="Agents can only update ticket status",
             )
 
-    if current_user.role != UserRole.ADMIN and "assigned_agent_id" in update_data:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only admins can reassign tickets",
+    if "assigned_agent_id" in update_data:
+        if current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only admins can assign or reassign tickets",
+            )
+        resolved_id, resolved_email = await resolve_agent_assignment(
+            db,
+            update_data["assigned_agent_id"],
         )
+        update_data["assigned_agent_id"] = resolved_id
+        update_data["assigned_agent_email"] = resolved_email
 
     if "customer_email" in update_data and update_data["customer_email"] is not None:
         update_data["customer_email"] = str(update_data["customer_email"]).lower()

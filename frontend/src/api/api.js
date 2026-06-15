@@ -76,6 +76,11 @@ export const getAnalyticsSummary = () => api.get('/analytics/summary');
 
 export const getUsers = () => api.get('/users');
 
+export const getAgents = () => api.get('/users/agents');
+
+/** @returns {Promise<import('axios').AxiosResponse<Array<{id:string,email:string,name:string,role:string}>>>} */
+export const listAgents = getAgents;
+
 export const createUser = (userData) => api.post('/users', userData);
 
 export const deactivateUser = (userId) => api.delete(`/users/${userId}`);

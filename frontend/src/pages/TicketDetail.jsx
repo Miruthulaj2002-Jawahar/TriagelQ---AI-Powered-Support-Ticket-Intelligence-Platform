@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getTicketById, overrideTicket, resetTicketOverride, updateTicket } from '../api/api.js';
+import {
+  getAgents,
+  getTicketById,
+  overrideTicket,
+  resetTicketOverride,
+  updateTicket,
+} from '../api/api.js';
+import { useUserRole } from '../hooks/useUserRole.js';
+import { formatAgentOptionLabel, getAssignedAgentLabel } from '../utils/assignmentHelpers.js';
 import { PriorityBadge } from '../utils/badges.jsx';
 import { renderDetailValue } from '../utils/renderDetailValue.jsx';
 import './TicketDetail.css';
@@ -102,6 +110,7 @@ function buildDetailFields(ticket) {
     { label: 'Status', value: ticket.status, badge: 'status' },
     { label: 'Sentiment', value: ticket.sentiment, badge: 'sentiment' },
     { label: 'Assigned Queue', value: ticket.assigned_queue },
+    { label: 'Assigned Agent', value: getAssignedAgentLabel(ticket) },
     { label: 'Created At', value: formatDate(ticket.created_at) },
     { label: 'Updated At', value: formatDate(ticket.updated_at) },
   ].filter((field) => field.value !== null && field.value !== undefined && field.value !== '');
@@ -109,6 +118,7 @@ function buildDetailFields(ticket) {
 
 function TicketDetail() {
   const { id } = useParams();
+  const { isAdmin, loading: roleLoading } = useUserRole();
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -116,6 +126,13 @@ function TicketDetail() {
   const [statusMessage, setStatusMessage] = useState('');
   const [statusError, setStatusError] = useState('');
   const [updatingStatus, setUpdatingStatus] = useState(false);
+  const [agents, setAgents] = useState([]);
+  const [agentsLoading, setAgentsLoading] = useState(false);
+  const [agentsError, setAgentsError] = useState('');
+  const [selectedAgentId, setSelectedAgentId] = useState('');
+  const [assignmentMessage, setAssignmentMessage] = useState('');
+  const [assignmentError, setAssignmentError] = useState('');
+  const [updatingAssignment, setUpdatingAssignment] = useState(false);
   const [overrideCategory, setOverrideCategory] = useState('');
   const [overridePriority, setOverridePriority] = useState('');
   const [overrideReason, setOverrideReason] = useState('');
@@ -129,7 +146,27 @@ function TicketDetail() {
     setOverrideCategory(formValues.category);
     setOverridePriority(formValues.priority);
     setOverrideReason(formValues.reason);
+    setSelectedAgentId(ticketData?.assigned_agent_id || '');
   }, []);
+
+  const fetchAgents = useCallback(async () => {
+    if (!isAdmin) {
+      return;
+    }
+
+    setAgentsLoading(true);
+    setAgentsError('');
+
+    try {
+      const response = await getAgents();
+      setAgents(response.data);
+    } catch (err) {
+      setAgents([]);
+      setAgentsError(getErrorMessage(err, 'Failed to load agents.'));
+    } finally {
+      setAgentsLoading(false);
+    }
+  }, [isAdmin]);
 
   const fetchTicket = useCallback(async () => {
     setLoading(true);
@@ -151,9 +188,33 @@ function TicketDetail() {
   useEffect(() => {
     const frameId = requestAnimationFrame(() => {
       fetchTicket();
+      if (!roleLoading && isAdmin) {
+        fetchAgents();
+      }
     });
     return () => cancelAnimationFrame(frameId);
-  }, [fetchTicket]);
+  }, [fetchTicket, fetchAgents, isAdmin, roleLoading]);
+
+  const handleAssignmentUpdate = async (event) => {
+    event.preventDefault();
+    setAssignmentMessage('');
+    setAssignmentError('');
+    setUpdatingAssignment(true);
+
+    try {
+      const payload = {
+        assigned_agent_id: selectedAgentId || null,
+      };
+      const response = await updateTicket(id, payload);
+      setTicket(response.data);
+      applyTicketToForm(response.data);
+      setAssignmentMessage('Ticket assignment updated successfully.');
+    } catch (err) {
+      setAssignmentError(getErrorMessage(err, 'Failed to update assignment.'));
+    } finally {
+      setUpdatingAssignment(false);
+    }
+  };
 
   const handleStatusUpdate = async (event) => {
     event.preventDefault();
@@ -329,6 +390,49 @@ function TicketDetail() {
             {statusMessage && <p className="ticket-detail-success">{statusMessage}</p>}
             {statusError && <p className="ticket-detail-error">{statusError}</p>}
           </section>
+
+          {isAdmin && (
+            <section className="ticket-detail-panel">
+              <h2>Assign to Agent</h2>
+              <p className="panel-note">
+                Assigned Agent: {getAssignedAgentLabel(ticket)}
+              </p>
+              <p className="panel-note">
+                Select an agent below to assign or reassign this ticket. Choose Unassigned to
+                remove ownership.
+              </p>
+
+              <form className="ticket-update-form" onSubmit={handleAssignmentUpdate}>
+                <label htmlFor="assigned-agent">Assign to Agent</label>
+                <select
+                  id="assigned-agent"
+                  value={selectedAgentId}
+                  onChange={(event) => setSelectedAgentId(event.target.value)}
+                  disabled={agentsLoading}
+                >
+                  <option value="">Unassigned</option>
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {formatAgentOptionLabel(agent)}
+                    </option>
+                  ))}
+                </select>
+
+                {agentsLoading && <p className="ticket-detail-message">Loading agents...</p>}
+                {agentsError && <p className="ticket-detail-error">{agentsError}</p>}
+
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={updatingAssignment || agentsLoading}
+                >
+                  {updatingAssignment ? 'Saving Assignment...' : 'Save Assignment'}
+                </button>
+              </form>
+              {assignmentMessage && <p className="ticket-detail-success">{assignmentMessage}</p>}
+              {assignmentError && <p className="ticket-detail-error">{assignmentError}</p>}
+            </section>
+          )}
 
           <section className="ticket-detail-panel">
             <h2>Manual Override</h2>

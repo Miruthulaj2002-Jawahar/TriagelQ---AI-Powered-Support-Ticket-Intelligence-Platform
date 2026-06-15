@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getTickets } from '../api/api.js';
+import { useUserRole } from '../hooks/useUserRole.js';
+import { getAssignedAgentLabel } from '../utils/assignmentHelpers.js';
 import { PriorityBadge, SentimentBadge, StatusBadge } from '../utils/badges.jsx';
 import './Tickets.css';
 
@@ -27,8 +29,7 @@ function getErrorMessage(error) {
 }
 
 function Tickets() {
-  const role = localStorage.getItem('role');
-  const isAgent = role === 'AGENT';
+  const { isAdmin, isAgent } = useUserRole();
   const [tickets, setTickets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -98,9 +99,11 @@ function Tickets() {
           <button type="button" className="btn-secondary" onClick={fetchTickets} disabled={loading}>
             Refresh
           </button>
-          <Link to="/create-ticket" className="btn-primary">
-            Create Ticket
-          </Link>
+          {!isAdmin && (
+            <Link to="/create-ticket" className="btn-primary">
+              Create Ticket
+            </Link>
+          )}
         </div>
       </div>
 
@@ -163,6 +166,7 @@ function Tickets() {
                 <th>Priority</th>
                 <th>Sentiment</th>
                 <th>Assigned Queue</th>
+                {isAdmin && <th>Assigned Agent</th>}
                 <th>Created At</th>
                 <th>Actions</th>
               </tr>
@@ -183,6 +187,7 @@ function Tickets() {
                     <SentimentBadge value={ticket.sentiment} />
                   </td>
                   <td>{ticket.assigned_queue || '—'}</td>
+                  {isAdmin && <td>{getAssignedAgentLabel(ticket)}</td>}
                   <td>{formatDate(ticket.created_at)}</td>
                   <td>
                     <Link to={`/tickets/${ticket.id}`} className="view-details-link">

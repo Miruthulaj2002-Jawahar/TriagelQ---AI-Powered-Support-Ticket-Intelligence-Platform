@@ -9,6 +9,7 @@ from pymongo.errors import DuplicateKeyError
 
 from app.db.mongodb import get_database
 from app.schemas.user import (
+    AgentSummaryResponse,
     UserCreate,
     UserCreateResponse,
     UserListResponse,
@@ -86,6 +87,34 @@ async def ensure_user_can_be_deactivated(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Cannot deactivate the last active admin",
             )
+
+
+@router.get(
+    "/agents",
+    response_model=list[AgentSummaryResponse],
+    summary="List active agents",
+    operation_id="list_agents",
+)
+async def list_agents(
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserResponse = Depends(require_admin),
+) -> list[AgentSummaryResponse]:
+    agents = await db.users.find(
+        {
+            "role": UserRole.AGENT.value,
+            "$or": [{"is_active": True}, {"is_active": {"$exists": False}}],
+        }
+    ).sort("full_name", 1).to_list(length=None)
+
+    return [
+        AgentSummaryResponse(
+            id=str(agent["_id"]),
+            email=agent["email"],
+            name=agent["full_name"],
+            role=UserRole(agent["role"]),
+        )
+        for agent in agents
+    ]
 
 
 @router.get("", response_model=list[UserListResponse])

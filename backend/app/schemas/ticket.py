@@ -74,6 +74,8 @@ class TicketResponse(BaseModel):
     sentiment: TicketSentiment
     assigned_queue: str | None
     assigned_agent_id: str | None
+    assigned_agent_email: str | None = None
+    assigned_agent_name: str | None = None
     created_by: str
     created_at: datetime
     updated_at: datetime

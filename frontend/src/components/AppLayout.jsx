@@ -25,6 +25,9 @@ function AppLayout() {
               <NavLink to="/tickets" end className={({ isActive }) => (isActive ? 'active' : undefined)}>
                 Tickets
               </NavLink>
+              <NavLink to="/create-ticket" className={({ isActive }) => (isActive ? 'active' : undefined)}>
+                Create Ticket
+              </NavLink>
               <NavLink to="/analytics" className={({ isActive }) => (isActive ? 'active' : undefined)}>
                 Analytics
               </NavLink>
