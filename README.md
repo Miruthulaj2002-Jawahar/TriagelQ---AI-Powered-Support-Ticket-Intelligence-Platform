@@ -50,7 +50,26 @@ Seed tickets vary across categories, priorities, sentiments, statuses, and suppo
 
 ## Backend tests
 
+Tests use an isolated MongoDB database (`triageiq_test` by default) so development data is not touched.
+
 ```bash
 cd backend
 python -m pytest tests -v
 ```
+
+Run with coverage (also the default via `pytest.ini`):
+
+```bash
+python -m pytest --cov=app --cov-report=term-missing
+```
+
+Override the test database name:
+
+```bash
+set TEST_MONGODB_DB=triageiq_test
+python -m pytest tests -v
+```
+
+## Kubernetes (optional)
+
+Manifests for deploying to a cluster live in [`k8s/`](k8s/README.md). Docker Compose remains the default for local development.

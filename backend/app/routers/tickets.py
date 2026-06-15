@@ -181,7 +181,13 @@ async def create_ticket(
         assigned_agent_id = current_user.id
 
     now = datetime.now(UTC)
-    ai_fields = build_ai_storage_fields(category, priority, sentiment)
+    ai_fields = build_ai_storage_fields(
+        classification["category"],
+        classification["priority"],
+        classification["sentiment"],
+        confidence=classification.get("confidence"),
+        explanation=classification.get("explanation"),
+    )
     ticket_doc = {
         "title": payload.title,
         "description": payload.description,

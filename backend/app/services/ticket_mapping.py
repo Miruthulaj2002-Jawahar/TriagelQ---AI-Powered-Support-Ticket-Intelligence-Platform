@@ -149,14 +149,17 @@ def build_ai_storage_fields(
     category: str,
     priority: str,
     sentiment: str,
+    *,
+    confidence: float | None = None,
+    explanation: str | None = None,
 ) -> dict[str, Any]:
-    explanation = (
+    default_explanation = (
         f"AI classified as {category} with {priority} priority and {sentiment} sentiment."
     )
     return {
         "ai_category": category,
         "ai_priority": priority,
         "ai_sentiment": sentiment,
-        "ai_confidence": None,
-        "ai_explanation": explanation,
+        "ai_confidence": confidence,
+        "ai_explanation": explanation or default_explanation,
     }

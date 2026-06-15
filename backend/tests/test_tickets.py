@@ -44,6 +44,8 @@ async def test_ticket_creation(client: AsyncClient, agent_token: str, agent_user
     assert ticket["ai_category"] is not None
     assert ticket["ai_priority"] is not None
     assert ticket["ai_sentiment"] is not None
+    assert ticket["ai_confidence"] is not None
+    assert ticket["ai_explanation"] is not None
 
 
 async def test_ticket_list_access_admin_sees_all(

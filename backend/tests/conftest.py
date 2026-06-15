@@ -5,7 +5,7 @@ Environment / database setup
 ------------------------------
 Tests use a dedicated MongoDB database so production/dev data is not touched.
 
-  - Default test DB name: triagemiq_test
+  - Default test DB name: triageiq_test
   - Override with: TEST_MONGODB_DB=my_custom_test_db
   - MongoDB URI comes from MONGODB_URI (defaults to mongodb://localhost:27017)
   - JWT_SECRET is required; a local-only default is set below if missing.
@@ -29,7 +29,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 # Configure test environment BEFORE importing the FastAPI app (settings load at import).
-_DEFAULT_TEST_DB = "triagemiq_test"
+_DEFAULT_TEST_DB = "triageiq_test"
 _test_db_name = os.environ.get("TEST_MONGODB_DB", _DEFAULT_TEST_DB)
 os.environ["MONGODB_DB"] = _test_db_name
 os.environ.setdefault("JWT_SECRET", "pytest-local-jwt-secret-do-not-use-in-production")
@@ -37,7 +37,7 @@ os.environ.setdefault("JWT_SECRET", "pytest-local-jwt-secret-do-not-use-in-produ
 if _test_db_name == "triagemiq" and os.environ.get("ALLOW_PRODUCTION_TEST_DB") != "1":
     pytest.exit(
         "Refusing to run tests against database 'triagemiq'. "
-        "Set TEST_MONGODB_DB=triagemiq_test (recommended) or "
+        "Set TEST_MONGODB_DB=triageiq_test (recommended) or "
         "ALLOW_PRODUCTION_TEST_DB=1 to override.",
         returncode=1,
     )
