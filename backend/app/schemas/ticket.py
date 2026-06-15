@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from pydantic import BaseModel, EmailStr, Field
 
 
 class TicketStatus(str, Enum):
@@ -58,15 +58,9 @@ class TicketUpdate(BaseModel):
 
 
 class TicketOverrideRequest(BaseModel):
-    category: str | None = Field(None, min_length=1, max_length=100)
-    priority: TicketPriority | None = None
+    category: str = Field(..., min_length=1, max_length=100)
+    priority: TicketPriority
     override_reason: str | None = Field(None, max_length=500)
-
-    @model_validator(mode="after")
-    def require_category_or_priority(self) -> "TicketOverrideRequest":
-        if self.category is None and self.priority is None:
-            raise ValueError("At least one of category or priority is required")
-        return self
 
 
 class TicketResponse(BaseModel):
@@ -92,4 +86,7 @@ class TicketResponse(BaseModel):
     priority_override: TicketPriority | None = None
     override_reason: str | None = None
     overridden_by: str | None = None
+    overridden_by_name: str | None = None
+    overridden_by_email: str | None = None
     overridden_at: datetime | None = None
+    has_manual_override: bool = False

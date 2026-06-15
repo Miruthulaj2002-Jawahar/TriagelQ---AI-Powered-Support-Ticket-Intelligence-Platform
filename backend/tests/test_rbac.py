@@ -46,6 +46,11 @@ async def test_admin_can_access_analytics(client: AsyncClient, admin_token: str,
     assert "resolution_rate" in body
     assert "ai_accuracy" in body
     assert "overridden_tickets" in body
+    assert "total_classified_tickets" in body
+    assert "overridden_ticket_count" in body
+    assert "accepted_ai_count" in body
+    assert "override_rate" in body
+    assert "ai_classification_summary" in body
 
 
 async def test_agent_cannot_access_analytics(client: AsyncClient, agent_token: str) -> None:

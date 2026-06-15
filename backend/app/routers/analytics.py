@@ -6,6 +6,7 @@ from app.db.mongodb import get_database
 from app.schemas.ticket import TicketPriority, TicketSentiment, TicketStatus
 from app.schemas.user import UserResponse
 from app.services.security import require_admin
+from app.services.ticket_mapping import compute_ai_accuracy_metrics
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -19,22 +20,18 @@ class AnalyticsSummary(BaseModel):
     urgent_tickets: int
     high_priority_tickets: int
     negative_sentiment_tickets: int
-    overridden_tickets: int
+    total_classified_tickets: int
+    overridden_ticket_count: int
+    accepted_ai_count: int
+    override_rate: float
     ai_accuracy: float
+    ai_classification_summary: dict[str, int]
+    overridden_tickets: int
     tickets_by_status: dict[str, int]
     tickets_by_priority: dict[str, int]
     tickets_by_category: dict[str, int]
     tickets_by_sentiment: dict[str, int]
     resolution_rate: float
-
-
-OVERRIDDEN_TICKET_FILTER = {
-    "$or": [
-        {"category_override": {"$exists": True, "$ne": None}},
-        {"priority_override": {"$exists": True, "$ne": None}},
-        {"overridden_at": {"$exists": True, "$ne": None}},
-    ]
-}
 
 
 async def count_by_field(
@@ -79,9 +76,8 @@ async def get_analytics_summary(
     tickets_by_category = await count_by_field(db, "category")
     tickets_by_sentiment = await count_by_field(db, "sentiment")
 
-    overridden_tickets = await db.tickets.count_documents(OVERRIDDEN_TICKET_FILTER)
-    not_overridden = max(total_tickets - overridden_tickets, 0)
-    ai_accuracy = round((not_overridden / total_tickets) * 100, 2) if total_tickets else 0.0
+    all_tickets = await db.tickets.find().to_list(length=None)
+    ai_metrics = compute_ai_accuracy_metrics(all_tickets)
 
     resolved_count = resolved_tickets + closed_tickets
     resolution_rate = round((resolved_count / total_tickets) * 100, 2) if total_tickets else 0.0
@@ -95,8 +91,13 @@ async def get_analytics_summary(
         urgent_tickets=urgent_tickets,
         high_priority_tickets=high_priority_tickets,
         negative_sentiment_tickets=negative_sentiment_tickets,
-        overridden_tickets=overridden_tickets,
-        ai_accuracy=ai_accuracy,
+        total_classified_tickets=int(ai_metrics["total_classified_tickets"]),
+        overridden_ticket_count=int(ai_metrics["overridden_ticket_count"]),
+        accepted_ai_count=int(ai_metrics["accepted_ai_count"]),
+        override_rate=float(ai_metrics["override_rate"]),
+        ai_accuracy=float(ai_metrics["ai_accuracy"]),
+        ai_classification_summary=dict(ai_metrics["ai_classification_summary"]),
+        overridden_tickets=int(ai_metrics["overridden_ticket_count"]),
         tickets_by_status=tickets_by_status,
         tickets_by_priority=tickets_by_priority,
         tickets_by_category=tickets_by_category,

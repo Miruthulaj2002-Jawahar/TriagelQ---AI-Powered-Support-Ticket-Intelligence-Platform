@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getTicketById, overrideTicket, updateTicket } from '../api/api.js';
+import { getTicketById, overrideTicket, resetTicketOverride, updateTicket } from '../api/api.js';
 import { PriorityBadge, renderDetailValue } from '../utils/badges.jsx';
 import './TicketDetail.css';
 
@@ -34,6 +34,27 @@ function getErrorMessage(error, fallback) {
   return fallback;
 }
 
+function getEffectiveFormValues(ticket) {
+  return {
+    category: ticket?.category || ticket?.ai_category || '',
+    priority: ticket?.priority || ticket?.ai_priority || '',
+    reason: ticket?.override_reason || '',
+  };
+}
+
+function getOverriddenByLabel(ticket) {
+  if (ticket?.overridden_by_name && ticket?.overridden_by_email) {
+    return `${ticket.overridden_by_name} (${ticket.overridden_by_email})`;
+  }
+  if (ticket?.overridden_by_name) {
+    return ticket.overridden_by_name;
+  }
+  if (ticket?.overridden_by_email) {
+    return ticket.overridden_by_email;
+  }
+  return ticket?.overridden_by || null;
+}
+
 function buildEffectiveFields(ticket) {
   if (!ticket) return [];
 
@@ -56,13 +77,15 @@ function buildAiFields(ticket) {
 }
 
 function buildOverrideFields(ticket) {
-  if (!ticket) return [];
+  if (!ticket?.has_manual_override) return [];
+
+  const overriddenBy = getOverriddenByLabel(ticket);
 
   return [
     { label: 'Category Override', value: ticket.category_override },
     { label: 'Priority Override', value: ticket.priority_override, badge: 'priority' },
     { label: 'Override Reason', value: ticket.override_reason },
-    { label: 'Overridden By', value: ticket.overridden_by },
+    { label: 'Overridden By', value: overriddenBy },
     { label: 'Overridden At', value: formatDate(ticket.overridden_at) },
   ].filter((field) => field.value !== null && field.value !== undefined && field.value !== '');
 }
@@ -98,6 +121,14 @@ function TicketDetail() {
   const [overrideMessage, setOverrideMessage] = useState('');
   const [overrideError, setOverrideError] = useState('');
   const [submittingOverride, setSubmittingOverride] = useState(false);
+  const [resettingOverride, setResettingOverride] = useState(false);
+
+  const applyTicketToForm = useCallback((ticketData) => {
+    const formValues = getEffectiveFormValues(ticketData);
+    setOverrideCategory(formValues.category);
+    setOverridePriority(formValues.priority);
+    setOverrideReason(formValues.reason);
+  }, []);
 
   const fetchTicket = useCallback(async () => {
     setLoading(true);
@@ -107,13 +138,14 @@ function TicketDetail() {
       const response = await getTicketById(id);
       setTicket(response.data);
       setSelectedStatus(response.data.status || 'OPEN');
+      applyTicketToForm(response.data);
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to load ticket details.'));
       setTicket(null);
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [applyTicketToForm, id]);
 
   useEffect(() => {
     fetchTicket();
@@ -142,29 +174,53 @@ function TicketDetail() {
     setOverrideMessage('');
     setOverrideError('');
 
-    if (!overrideCategory && !overridePriority) {
-      setOverrideError('Select at least a category or priority override.');
+    if (!overrideCategory || !overridePriority) {
+      setOverrideError('Category and priority are required.');
       return;
     }
-
-    const payload = {};
-    if (overrideCategory) payload.category = overrideCategory;
-    if (overridePriority) payload.priority = overridePriority;
-    if (overrideReason.trim()) payload.override_reason = overrideReason.trim();
 
     setSubmittingOverride(true);
 
     try {
+      const payload = {
+        category: overrideCategory,
+        priority: overridePriority,
+      };
+      if (overrideReason.trim()) {
+        payload.override_reason = overrideReason.trim();
+      }
+
       const response = await overrideTicket(id, payload);
       setTicket(response.data);
+      applyTicketToForm(response.data);
       setOverrideMessage('Manual override applied successfully.');
-      setOverrideCategory('');
-      setOverridePriority('');
-      setOverrideReason('');
     } catch (err) {
       setOverrideError(getErrorMessage(err, 'Failed to apply manual override.'));
     } finally {
       setSubmittingOverride(false);
+    }
+  };
+
+  const handleResetOverride = async () => {
+    setOverrideMessage('');
+    setOverrideError('');
+
+    const confirmed = window.confirm('Reset this ticket to the original AI classification?');
+    if (!confirmed) {
+      return;
+    }
+
+    setResettingOverride(true);
+
+    try {
+      const response = await resetTicketOverride(id);
+      setTicket(response.data);
+      applyTicketToForm(response.data);
+      setOverrideMessage('Ticket reset to AI classification.');
+    } catch (err) {
+      setOverrideError(getErrorMessage(err, 'Failed to reset override.'));
+    } finally {
+      setResettingOverride(false);
     }
   };
 
@@ -224,9 +280,9 @@ function TicketDetail() {
             </dl>
           </section>
 
-          {overrideFields.length > 0 && (
-            <section className="ticket-detail-panel">
-              <h2>Manual Override Details</h2>
+          <section className="ticket-detail-panel">
+            <h2>Manual Override Details</h2>
+            {ticket.has_manual_override ? (
               <dl className="ticket-detail-fields">
                 {overrideFields.map((field) => (
                   <div key={field.label} className="detail-row">
@@ -241,8 +297,10 @@ function TicketDetail() {
                   </div>
                 ))}
               </dl>
-            </section>
-          )}
+            ) : (
+              <p className="panel-note">No manual override has been applied.</p>
+            )}
+          </section>
 
           <section className="ticket-detail-panel">
             <h2>Update Status</h2>
@@ -280,8 +338,8 @@ function TicketDetail() {
                 id="override-category"
                 value={overrideCategory}
                 onChange={(event) => setOverrideCategory(event.target.value)}
+                required
               >
-                <option value="">Select category</option>
                 {CATEGORY_OPTIONS.map((category) => (
                   <option key={category} value={category}>
                     {category}
@@ -294,8 +352,8 @@ function TicketDetail() {
                 id="override-priority"
                 value={overridePriority}
                 onChange={(event) => setOverridePriority(event.target.value)}
+                required
               >
-                <option value="">Select priority</option>
                 {PRIORITY_OPTIONS.map((priority) => (
                   <option key={priority} value={priority}>
                     {priority}
@@ -312,9 +370,19 @@ function TicketDetail() {
                 placeholder="Why is this override needed?"
               />
 
-              <button type="submit" className="btn-secondary" disabled={submittingOverride}>
-                {submittingOverride ? 'Applying Override...' : 'Apply Override'}
-              </button>
+              <div className="ticket-detail-actions">
+                <button type="submit" className="btn-secondary" disabled={submittingOverride}>
+                  {submittingOverride ? 'Applying Override...' : 'Apply Override'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleResetOverride}
+                  disabled={resettingOverride || !ticket.has_manual_override}
+                >
+                  {resettingOverride ? 'Resetting...' : 'Reset to AI Classification'}
+                </button>
+              </div>
             </form>
             {overrideMessage && <p className="ticket-detail-success">{overrideMessage}</p>}
             {overrideError && <p className="ticket-detail-error">{overrideError}</p>}

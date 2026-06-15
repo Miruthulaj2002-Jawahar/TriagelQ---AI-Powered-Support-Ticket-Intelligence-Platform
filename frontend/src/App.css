@@ -183,12 +183,14 @@
   color: var(--text-h);
 }
 
+.analytics-section,
 .profile-section,
 .dashboard-actions,
 .users-section {
   margin-bottom: 1.75rem;
 }
 
+.analytics-section h2,
 .profile-section h2,
 .ticket-detail-panel h2,
 .classification-panel h2,
@@ -622,6 +624,13 @@
 .ticket-detail-panel + .ticket-detail-panel,
 .classification-panel {
   margin-top: 1.25rem;
+}
+
+.ticket-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
 }
 
 .create-ticket-success {

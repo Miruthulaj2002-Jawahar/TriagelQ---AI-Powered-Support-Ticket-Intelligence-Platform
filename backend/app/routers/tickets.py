@@ -19,10 +19,25 @@ from app.schemas.ticket import (
 )
 from app.schemas.user import UserResponse, UserRole
 from app.services.classifier import classify_ticket
-from app.services.security import get_current_user, require_admin
-from app.services.ticket_mapping import build_ai_storage_fields, ticket_doc_to_response
+from app.services.security import get_current_user, require_admin, require_agent_or_admin
+from app.services.ticket_mapping import (
+    build_ai_storage_fields,
+    compute_effective_category,
+    compute_effective_priority,
+    resolve_ai_fields,
+    ticket_doc_to_response,
+    ticket_has_real_override,
+)
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
+
+OVERRIDE_CLEAR_FIELDS = {
+    "category_override": None,
+    "priority_override": None,
+    "override_reason": None,
+    "overridden_by": None,
+    "overridden_at": None,
+}
 
 
 def parse_ticket_id(ticket_id: str) -> ObjectId:
@@ -68,6 +83,30 @@ async def get_accessible_ticket(
     return ticket
 
 
+async def enrich_ticket_response(
+    db: AsyncIOMotorDatabase,
+    ticket: dict[str, Any],
+) -> TicketResponse:
+    overridden_by_name = None
+    overridden_by_email = None
+    overridden_by_id = ticket.get("overridden_by")
+
+    if overridden_by_id:
+        try:
+            user = await db.users.find_one({"_id": ObjectId(overridden_by_id)})
+        except InvalidId:
+            user = None
+        if user:
+            overridden_by_name = user.get("full_name")
+            overridden_by_email = user.get("email")
+
+    return ticket_doc_to_response(
+        ticket,
+        overridden_by_name=overridden_by_name,
+        overridden_by_email=overridden_by_email,
+    )
+
+
 def validate_override_category(category: str) -> str:
     normalized = category.strip()
     if normalized not in ALLOWED_TICKET_CATEGORIES:
@@ -77,6 +116,51 @@ def validate_override_category(category: str) -> str:
             detail=f"Invalid category. Allowed values: {allowed}",
         )
     return normalized
+
+
+def build_override_update(
+    ticket: dict[str, Any],
+    payload: TicketOverrideRequest,
+    current_user: UserResponse,
+) -> dict[str, Any]:
+    ai_fields = resolve_ai_fields(ticket)
+    ai_category = ai_fields["ai_category"]
+    ai_priority = ai_fields["ai_priority"]
+
+    selected_category = validate_override_category(payload.category)
+    selected_priority = payload.priority.value
+
+    category_differs = selected_category != ai_category
+    priority_differs = selected_priority != ai_priority
+
+    if not category_differs and not priority_differs:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Selected values match AI classification; no override applied",
+        )
+
+    update_data: dict[str, Any] = {
+        "updated_at": datetime.now(UTC),
+        "overridden_by": current_user.id,
+        "overridden_at": datetime.now(UTC),
+        "override_reason": payload.override_reason.strip() if payload.override_reason else None,
+    }
+
+    if category_differs:
+        update_data["category_override"] = selected_category
+    else:
+        update_data["category_override"] = None
+
+    if priority_differs:
+        update_data["priority_override"] = selected_priority
+    else:
+        update_data["priority_override"] = None
+
+    preview_ticket = {**ticket, **update_data}
+    update_data["category"] = compute_effective_category(preview_ticket, ai_fields)
+    update_data["priority"] = compute_effective_priority(preview_ticket, ai_fields)
+
+    return update_data
 
 
 @router.post("", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
@@ -122,7 +206,7 @@ async def create_ticket(
             detail="Failed to create ticket",
         )
 
-    return ticket_doc_to_response(created)
+    return await enrich_ticket_response(db, created)
 
 
 @router.get("", response_model=list[TicketResponse])
@@ -142,7 +226,7 @@ async def get_ticket(
     current_user: UserResponse = Depends(get_current_user),
 ) -> TicketResponse:
     ticket = await get_accessible_ticket(ticket_id, db, current_user)
-    return ticket_doc_to_response(ticket)
+    return await enrich_ticket_response(db, ticket)
 
 
 @router.patch("/{ticket_id}/override", response_model=TicketResponse)
@@ -150,28 +234,11 @@ async def override_ticket_classification(
     ticket_id: str,
     payload: TicketOverrideRequest,
     db: AsyncIOMotorDatabase = Depends(get_database),
-    current_user: UserResponse = Depends(get_current_user),
+    current_user: UserResponse = Depends(require_agent_or_admin),
 ) -> TicketResponse:
     object_id = parse_ticket_id(ticket_id)
     ticket = await get_accessible_ticket(ticket_id, db, current_user)
-
-    update_data: dict[str, Any] = {
-        "overridden_by": current_user.id,
-        "overridden_at": datetime.now(UTC),
-        "updated_at": datetime.now(UTC),
-    }
-
-    if payload.override_reason is not None:
-        update_data["override_reason"] = payload.override_reason.strip() or None
-
-    if payload.category is not None:
-        normalized_category = validate_override_category(payload.category)
-        update_data["category_override"] = normalized_category
-        update_data["category"] = normalized_category
-
-    if payload.priority is not None:
-        update_data["priority_override"] = payload.priority.value
-        update_data["priority"] = payload.priority.value
+    update_data = build_override_update(ticket, payload, current_user)
 
     await db.tickets.update_one({"_id": object_id}, {"$set": update_data})
 
@@ -182,7 +249,36 @@ async def override_ticket_classification(
             detail="Ticket not found",
         )
 
-    return ticket_doc_to_response(updated)
+    return await enrich_ticket_response(db, updated)
+
+
+@router.delete("/{ticket_id}/override", response_model=TicketResponse)
+async def reset_ticket_override(
+    ticket_id: str,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserResponse = Depends(require_agent_or_admin),
+) -> TicketResponse:
+    object_id = parse_ticket_id(ticket_id)
+    ticket = await get_accessible_ticket(ticket_id, db, current_user)
+    ai_fields = resolve_ai_fields(ticket)
+
+    update_data = {
+        **OVERRIDE_CLEAR_FIELDS,
+        "category": ai_fields["ai_category"],
+        "priority": ai_fields["ai_priority"],
+        "updated_at": datetime.now(UTC),
+    }
+
+    await db.tickets.update_one({"_id": object_id}, {"$set": update_data})
+
+    updated = await db.tickets.find_one({"_id": object_id})
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
+    return await enrich_ticket_response(db, updated)
 
 
 @router.put("/{ticket_id}", response_model=TicketResponse)
@@ -241,7 +337,7 @@ async def update_ticket(
             detail="Ticket not found",
         )
 
-    return ticket_doc_to_response(updated)
+    return await enrich_ticket_response(db, updated)
 
 
 @router.delete("/{ticket_id}")

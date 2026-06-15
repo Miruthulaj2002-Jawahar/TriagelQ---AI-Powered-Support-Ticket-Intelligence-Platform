@@ -68,6 +68,8 @@ export const updateTicket = (id, ticketData) => api.put(`/tickets/${id}`, ticket
 export const overrideTicket = (id, overrideData) =>
   api.patch(`/tickets/${id}/override`, overrideData);
 
+export const resetTicketOverride = (id) => api.delete(`/tickets/${id}/override`);
+
 export const deleteTicket = (id) => api.delete(`/tickets/${id}`);
 
 export const getAnalyticsSummary = () => api.get('/analytics/summary');

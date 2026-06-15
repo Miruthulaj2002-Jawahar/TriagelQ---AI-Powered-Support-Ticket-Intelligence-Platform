@@ -24,9 +24,15 @@ const METRIC_DEFINITIONS = [
     label: 'Negative Sentiment',
     keys: ['negative_sentiment_tickets', 'negativeSentimentTickets', 'negative_sentiment'],
   },
-  { label: 'AI Accuracy', keys: ['ai_accuracy', 'aiAccuracy'], format: 'percent' },
-  { label: 'Overridden Tickets', keys: ['overridden_tickets', 'overriddenTickets'] },
   { label: 'Resolution Rate', keys: ['resolution_rate', 'resolutionRate'], format: 'percent' },
+];
+
+const AI_METRIC_DEFINITIONS = [
+  { label: 'AI Accuracy', keys: ['ai_accuracy', 'aiAccuracy'], format: 'percent' },
+  { label: 'Manual Override Rate', keys: ['override_rate', 'overrideRate'], format: 'percent' },
+  { label: 'Overridden Tickets', keys: ['overridden_ticket_count', 'overriddenTickets'] },
+  { label: 'Accepted AI Count', keys: ['accepted_ai_count', 'acceptedAiCount'] },
+  { label: 'Classified Tickets', keys: ['total_classified_tickets', 'totalClassifiedTickets'] },
 ];
 
 const GROUPED_DATA_DEFINITIONS = [
@@ -80,7 +86,7 @@ function dictToChartData(record) {
   }
 
   return Object.entries(record).map(([name, value]) => ({
-    name: name.replace(/_/g, ' '),
+    name,
     value: Number(value) || 0,
   }));
 }
@@ -164,12 +170,26 @@ function Analytics() {
     [summary],
   );
 
+  const aiMetricCards = useMemo(
+    () =>
+      AI_METRIC_DEFINITIONS.map((metric) => ({
+        label: metric.label,
+        value: formatMetricValue(getFieldValue(summary, metric.keys), metric.format),
+      })),
+    [summary],
+  );
+
   const chartSections = useMemo(
     () =>
       GROUPED_DATA_DEFINITIONS.map((section) => ({
         title: section.title,
         data: dictToChartData(getFieldValue(summary, section.keys)),
       })).filter((section) => section.data.length > 0),
+    [summary],
+  );
+
+  const aiClassificationChart = useMemo(
+    () => dictToChartData(getFieldValue(summary, ['ai_classification_summary', 'aiClassificationSummary'])),
     [summary],
   );
 
@@ -204,22 +224,41 @@ function Analytics() {
 
       {!loading && !error && summary && (
         <>
-          <section className="analytics-cards">
-            {metricCards.map((card) => (
-              <article key={card.label} className="analytics-card">
-                <span className="analytics-card-label">{card.label}</span>
-                <strong className="analytics-card-value">{card.value}</strong>
-              </article>
-            ))}
+          <section className="analytics-section">
+            <h2>AI Classification Metrics</h2>
+            <div className="analytics-cards">
+              {aiMetricCards.map((card) => (
+                <article key={card.label} className="analytics-card">
+                  <span className="analytics-card-label">{card.label}</span>
+                  <strong className="analytics-card-value">{card.value}</strong>
+                </article>
+              ))}
+            </div>
           </section>
 
-          {chartSections.length > 0 && (
-            <section className="analytics-charts">
-              {chartSections.map((section) => (
-                <AnalyticsChart key={section.title} title={section.title} data={section.data} />
+          <section className="analytics-section">
+            <h2>Ticket Overview</h2>
+            <div className="analytics-cards">
+              {metricCards.map((card) => (
+                <article key={card.label} className="analytics-card">
+                  <span className="analytics-card-label">{card.label}</span>
+                  <strong className="analytics-card-value">{card.value}</strong>
+                </article>
               ))}
-            </section>
-          )}
+            </div>
+          </section>
+
+          <section className="analytics-charts">
+            {aiClassificationChart.length > 0 && (
+              <AnalyticsChart
+                title="Accepted AI Classification vs Manually Overridden Classification"
+                data={aiClassificationChart}
+              />
+            )}
+            {chartSections.map((section) => (
+              <AnalyticsChart key={section.title} title={section.title} data={section.data} />
+            ))}
+          </section>
         </>
       )}
     </div>
