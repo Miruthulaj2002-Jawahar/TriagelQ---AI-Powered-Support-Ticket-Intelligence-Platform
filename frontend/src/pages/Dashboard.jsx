@@ -15,6 +15,7 @@ const METRIC_DEFINITIONS = [
     label: 'Negative Sentiment Tickets',
     keys: ['negative_sentiment_tickets', 'negativeSentimentTickets', 'negative_sentiment'],
   },
+  { label: 'AI Accuracy', keys: ['ai_accuracy', 'aiAccuracy'], format: 'percent' },
   { label: 'Resolution Rate', keys: ['resolution_rate', 'resolutionRate'], format: 'percent' },
 ];
 

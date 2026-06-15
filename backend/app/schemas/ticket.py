@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, model_validator
 
 
 class TicketStatus(str, Enum):
@@ -22,6 +22,16 @@ class TicketSentiment(str, Enum):
     POSITIVE = "POSITIVE"
     NEUTRAL = "NEUTRAL"
     NEGATIVE = "NEGATIVE"
+
+
+ALLOWED_TICKET_CATEGORIES = [
+    "Billing",
+    "Technical",
+    "Account",
+    "Feature Request",
+    "Complaint",
+    "General",
+]
 
 
 class TicketCreate(BaseModel):
@@ -47,6 +57,18 @@ class TicketUpdate(BaseModel):
     assigned_agent_id: str | None = None
 
 
+class TicketOverrideRequest(BaseModel):
+    category: str | None = Field(None, min_length=1, max_length=100)
+    priority: TicketPriority | None = None
+    override_reason: str | None = Field(None, max_length=500)
+
+    @model_validator(mode="after")
+    def require_category_or_priority(self) -> "TicketOverrideRequest":
+        if self.category is None and self.priority is None:
+            raise ValueError("At least one of category or priority is required")
+        return self
+
+
 class TicketResponse(BaseModel):
     id: str
     title: str
@@ -61,3 +83,13 @@ class TicketResponse(BaseModel):
     created_by: str
     created_at: datetime
     updated_at: datetime
+    ai_category: str | None = None
+    ai_priority: TicketPriority | None = None
+    ai_sentiment: TicketSentiment | None = None
+    ai_confidence: float | None = None
+    ai_explanation: str | None = None
+    category_override: str | None = None
+    priority_override: TicketPriority | None = None
+    override_reason: str | None = None
+    overridden_by: str | None = None
+    overridden_at: datetime | None = None

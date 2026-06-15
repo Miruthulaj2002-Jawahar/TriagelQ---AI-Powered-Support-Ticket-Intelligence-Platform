@@ -65,6 +65,9 @@ export const getTicket = getTicketById;
 
 export const updateTicket = (id, ticketData) => api.put(`/tickets/${id}`, ticketData);
 
+export const overrideTicket = (id, overrideData) =>
+  api.patch(`/tickets/${id}/override`, overrideData);
+
 export const deleteTicket = (id) => api.delete(`/tickets/${id}`);
 
 export const getAnalyticsSummary = () => api.get('/analytics/summary');

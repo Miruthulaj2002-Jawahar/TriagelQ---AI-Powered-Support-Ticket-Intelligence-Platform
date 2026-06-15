@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { getTicketById, updateTicket } from '../api/api.js';
-import { renderDetailValue } from '../utils/badges.jsx';
+import { getTicketById, overrideTicket, updateTicket } from '../api/api.js';
+import { PriorityBadge, renderDetailValue } from '../utils/badges.jsx';
 import './TicketDetail.css';
 
 const STATUS_OPTIONS = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
 const PRIORITY_OPTIONS = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
-const SENTIMENT_OPTIONS = ['POSITIVE', 'NEUTRAL', 'NEGATIVE'];
+const CATEGORY_OPTIONS = [
+  'Billing',
+  'Technical',
+  'Account',
+  'Feature Request',
+  'Complaint',
+  'General',
+];
 
 function formatDate(value) {
   if (!value) return null;
@@ -27,12 +34,37 @@ function getErrorMessage(error, fallback) {
   return fallback;
 }
 
-function getConfidence(ticket) {
-  return ticket?.confidence ?? ticket?.classification_confidence;
+function buildEffectiveFields(ticket) {
+  if (!ticket) return [];
+
+  return [
+    { label: 'Effective Category', value: ticket.category },
+    { label: 'Effective Priority', value: ticket.priority, badge: 'priority' },
+  ].filter((field) => field.value !== null && field.value !== undefined && field.value !== '');
 }
 
-function getExplanation(ticket) {
-  return ticket?.explanation ?? ticket?.classification_explanation;
+function buildAiFields(ticket) {
+  if (!ticket) return [];
+
+  return [
+    { label: 'AI Category', value: ticket.ai_category },
+    { label: 'AI Priority', value: ticket.ai_priority, badge: 'priority' },
+    { label: 'AI Sentiment', value: ticket.ai_sentiment, badge: 'sentiment' },
+    { label: 'AI Confidence', value: ticket.ai_confidence },
+    { label: 'AI Explanation', value: ticket.ai_explanation },
+  ].filter((field) => field.value !== null && field.value !== undefined && field.value !== '');
+}
+
+function buildOverrideFields(ticket) {
+  if (!ticket) return [];
+
+  return [
+    { label: 'Category Override', value: ticket.category_override },
+    { label: 'Priority Override', value: ticket.priority_override, badge: 'priority' },
+    { label: 'Override Reason', value: ticket.override_reason },
+    { label: 'Overridden By', value: ticket.overridden_by },
+    { label: 'Overridden At', value: formatDate(ticket.overridden_at) },
+  ].filter((field) => field.value !== null && field.value !== undefined && field.value !== '');
 }
 
 function buildDetailFields(ticket) {
@@ -44,11 +76,7 @@ function buildDetailFields(ticket) {
     { label: 'Description', value: ticket.description },
     { label: 'Customer Email', value: ticket.customer_email },
     { label: 'Status', value: ticket.status, badge: 'status' },
-    { label: 'Category', value: ticket.category },
-    { label: 'Priority', value: ticket.priority, badge: 'priority' },
     { label: 'Sentiment', value: ticket.sentiment, badge: 'sentiment' },
-    { label: 'Confidence', value: getConfidence(ticket) },
-    { label: 'Explanation', value: getExplanation(ticket) },
     { label: 'Assigned Queue', value: ticket.assigned_queue },
     { label: 'Created At', value: formatDate(ticket.created_at) },
     { label: 'Updated At', value: formatDate(ticket.updated_at) },
@@ -57,7 +85,6 @@ function buildDetailFields(ticket) {
 
 function TicketDetail() {
   const { id } = useParams();
-  const isAdmin = localStorage.getItem('role') === 'ADMIN';
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -67,10 +94,10 @@ function TicketDetail() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [overrideCategory, setOverrideCategory] = useState('');
   const [overridePriority, setOverridePriority] = useState('');
-  const [overrideSentiment, setOverrideSentiment] = useState('');
+  const [overrideReason, setOverrideReason] = useState('');
   const [overrideMessage, setOverrideMessage] = useState('');
   const [overrideError, setOverrideError] = useState('');
-  const [updatingOverrides, setUpdatingOverrides] = useState(false);
+  const [submittingOverride, setSubmittingOverride] = useState(false);
 
   const fetchTicket = useCallback(async () => {
     setLoading(true);
@@ -110,39 +137,41 @@ function TicketDetail() {
     }
   };
 
-  const handleOverrideUpdate = async (event) => {
+  const handleOverrideSubmit = async (event) => {
     event.preventDefault();
     setOverrideMessage('');
     setOverrideError('');
 
-    const payload = {};
-    if (overrideCategory.trim()) payload.category = overrideCategory.trim();
-    if (overridePriority) payload.priority = overridePriority;
-    if (overrideSentiment) payload.sentiment = overrideSentiment;
-
-    if (Object.keys(payload).length === 0) {
-      setOverrideError('Enter at least one override value before applying.');
+    if (!overrideCategory && !overridePriority) {
+      setOverrideError('Select at least a category or priority override.');
       return;
     }
 
-    setUpdatingOverrides(true);
+    const payload = {};
+    if (overrideCategory) payload.category = overrideCategory;
+    if (overridePriority) payload.priority = overridePriority;
+    if (overrideReason.trim()) payload.override_reason = overrideReason.trim();
+
+    setSubmittingOverride(true);
 
     try {
-      const response = await updateTicket(id, payload);
+      const response = await overrideTicket(id, payload);
       setTicket(response.data);
-      setSelectedStatus(response.data.status || selectedStatus);
-      setOverrideMessage('Overrides applied successfully.');
+      setOverrideMessage('Manual override applied successfully.');
       setOverrideCategory('');
       setOverridePriority('');
-      setOverrideSentiment('');
+      setOverrideReason('');
     } catch (err) {
-      setOverrideError(getErrorMessage(err, 'Failed to apply overrides.'));
+      setOverrideError(getErrorMessage(err, 'Failed to apply manual override.'));
     } finally {
-      setUpdatingOverrides(false);
+      setSubmittingOverride(false);
     }
   };
 
   const detailFields = buildDetailFields(ticket);
+  const aiFields = buildAiFields(ticket);
+  const effectiveFields = buildEffectiveFields(ticket);
+  const overrideFields = buildOverrideFields(ticket);
 
   return (
     <div className="ticket-detail-page">
@@ -171,6 +200,51 @@ function TicketDetail() {
           </section>
 
           <section className="ticket-detail-panel">
+            <h2>Original AI Classification</h2>
+            <p className="panel-note">These values are preserved even after manual overrides.</p>
+            <dl className="ticket-detail-fields">
+              {aiFields.map((field) => (
+                <div key={field.label} className="detail-row">
+                  <dt>{field.label}</dt>
+                  <dd>{renderDetailValue(field)}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          <section className="ticket-detail-panel">
+            <h2>Current Effective Classification</h2>
+            <dl className="ticket-detail-fields">
+              {effectiveFields.map((field) => (
+                <div key={field.label} className="detail-row">
+                  <dt>{field.label}</dt>
+                  <dd>{renderDetailValue(field)}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+
+          {overrideFields.length > 0 && (
+            <section className="ticket-detail-panel">
+              <h2>Manual Override Details</h2>
+              <dl className="ticket-detail-fields">
+                {overrideFields.map((field) => (
+                  <div key={field.label} className="detail-row">
+                    <dt>{field.label}</dt>
+                    <dd>
+                      {field.badge === 'priority' ? (
+                        <PriorityBadge value={field.value} />
+                      ) : (
+                        field.value
+                      )}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
+
+          <section className="ticket-detail-panel">
             <h2>Update Status</h2>
             <form className="ticket-update-form" onSubmit={handleStatusUpdate}>
               <label htmlFor="status">Status</label>
@@ -194,22 +268,28 @@ function TicketDetail() {
             {statusError && <p className="ticket-detail-error">{statusError}</p>}
           </section>
 
-          {isAdmin && (
           <section className="ticket-detail-panel">
-            <h2>Manual Overrides</h2>
-            <p className="panel-note">Optional. Only filled fields are sent to the backend.</p>
+            <h2>Manual Override</h2>
+            <p className="panel-note">
+              Correct the AI category and/or priority. Original AI values remain stored separately.
+            </p>
 
-            <form className="ticket-update-form" onSubmit={handleOverrideUpdate}>
-              <label htmlFor="override-category">Override Category</label>
-              <input
+            <form className="ticket-update-form" onSubmit={handleOverrideSubmit}>
+              <label htmlFor="override-category">Category</label>
+              <select
                 id="override-category"
-                type="text"
                 value={overrideCategory}
                 onChange={(event) => setOverrideCategory(event.target.value)}
-                placeholder="e.g. Billing"
-              />
+              >
+                <option value="">Select category</option>
+                {CATEGORY_OPTIONS.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
 
-              <label htmlFor="override-priority">Override Priority</label>
+              <label htmlFor="override-priority">Priority</label>
               <select
                 id="override-priority"
                 value={overridePriority}
@@ -223,28 +303,22 @@ function TicketDetail() {
                 ))}
               </select>
 
-              <label htmlFor="override-sentiment">Override Sentiment</label>
-              <select
-                id="override-sentiment"
-                value={overrideSentiment}
-                onChange={(event) => setOverrideSentiment(event.target.value)}
-              >
-                <option value="">Select sentiment</option>
-                {SENTIMENT_OPTIONS.map((sentiment) => (
-                  <option key={sentiment} value={sentiment}>
-                    {sentiment}
-                  </option>
-                ))}
-              </select>
+              <label htmlFor="override-reason">Reason (optional)</label>
+              <input
+                id="override-reason"
+                type="text"
+                value={overrideReason}
+                onChange={(event) => setOverrideReason(event.target.value)}
+                placeholder="Why is this override needed?"
+              />
 
-              <button type="submit" className="btn-secondary" disabled={updatingOverrides}>
-                {updatingOverrides ? 'Applying...' : 'Apply Overrides'}
+              <button type="submit" className="btn-secondary" disabled={submittingOverride}>
+                {submittingOverride ? 'Applying Override...' : 'Apply Override'}
               </button>
             </form>
             {overrideMessage && <p className="ticket-detail-success">{overrideMessage}</p>}
             {overrideError && <p className="ticket-detail-error">{overrideError}</p>}
           </section>
-          )}
         </>
       )}
     </div>

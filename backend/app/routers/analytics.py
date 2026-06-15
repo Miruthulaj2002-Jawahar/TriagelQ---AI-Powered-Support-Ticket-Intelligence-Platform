@@ -19,11 +19,22 @@ class AnalyticsSummary(BaseModel):
     urgent_tickets: int
     high_priority_tickets: int
     negative_sentiment_tickets: int
+    overridden_tickets: int
+    ai_accuracy: float
     tickets_by_status: dict[str, int]
     tickets_by_priority: dict[str, int]
     tickets_by_category: dict[str, int]
     tickets_by_sentiment: dict[str, int]
     resolution_rate: float
+
+
+OVERRIDDEN_TICKET_FILTER = {
+    "$or": [
+        {"category_override": {"$exists": True, "$ne": None}},
+        {"priority_override": {"$exists": True, "$ne": None}},
+        {"overridden_at": {"$exists": True, "$ne": None}},
+    ]
+}
 
 
 async def count_by_field(
@@ -68,6 +79,10 @@ async def get_analytics_summary(
     tickets_by_category = await count_by_field(db, "category")
     tickets_by_sentiment = await count_by_field(db, "sentiment")
 
+    overridden_tickets = await db.tickets.count_documents(OVERRIDDEN_TICKET_FILTER)
+    not_overridden = max(total_tickets - overridden_tickets, 0)
+    ai_accuracy = round((not_overridden / total_tickets) * 100, 2) if total_tickets else 0.0
+
     resolved_count = resolved_tickets + closed_tickets
     resolution_rate = round((resolved_count / total_tickets) * 100, 2) if total_tickets else 0.0
 
@@ -80,6 +95,8 @@ async def get_analytics_summary(
         urgent_tickets=urgent_tickets,
         high_priority_tickets=high_priority_tickets,
         negative_sentiment_tickets=negative_sentiment_tickets,
+        overridden_tickets=overridden_tickets,
+        ai_accuracy=ai_accuracy,
         tickets_by_status=tickets_by_status,
         tickets_by_priority=tickets_by_priority,
         tickets_by_category=tickets_by_category,

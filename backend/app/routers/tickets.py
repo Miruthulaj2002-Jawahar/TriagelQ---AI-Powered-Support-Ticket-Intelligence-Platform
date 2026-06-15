@@ -8,7 +8,9 @@ from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.db.mongodb import get_database
 from app.schemas.ticket import (
+    ALLOWED_TICKET_CATEGORIES,
     TicketCreate,
+    TicketOverrideRequest,
     TicketPriority,
     TicketResponse,
     TicketSentiment,
@@ -18,6 +20,7 @@ from app.schemas.ticket import (
 from app.schemas.user import UserResponse, UserRole
 from app.services.classifier import classify_ticket
 from app.services.security import get_current_user, require_admin
+from app.services.ticket_mapping import build_ai_storage_fields, ticket_doc_to_response
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
@@ -30,24 +33,6 @@ def parse_ticket_id(ticket_id: str) -> ObjectId:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid ticket ID",
         ) from exc
-
-
-def ticket_doc_to_response(ticket: dict[str, Any]) -> TicketResponse:
-    return TicketResponse(
-        id=str(ticket["_id"]),
-        title=ticket["title"],
-        description=ticket["description"],
-        customer_email=ticket["customer_email"],
-        status=TicketStatus(ticket["status"]),
-        category=ticket.get("category"),
-        priority=TicketPriority(ticket["priority"]),
-        sentiment=TicketSentiment(ticket["sentiment"]),
-        assigned_queue=ticket.get("assigned_queue"),
-        assigned_agent_id=ticket.get("assigned_agent_id"),
-        created_by=ticket["created_by"],
-        created_at=ticket["created_at"],
-        updated_at=ticket["updated_at"],
-    )
 
 
 def get_ticket_list_filter(current_user: UserResponse) -> dict[str, Any]:
@@ -83,6 +68,17 @@ async def get_accessible_ticket(
     return ticket
 
 
+def validate_override_category(category: str) -> str:
+    normalized = category.strip()
+    if normalized not in ALLOWED_TICKET_CATEGORIES:
+        allowed = ", ".join(ALLOWED_TICKET_CATEGORIES)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid category. Allowed values: {allowed}",
+        )
+    return normalized
+
+
 @router.post("", response_model=TicketResponse, status_code=status.HTTP_201_CREATED)
 async def create_ticket(
     payload: TicketCreate,
@@ -101,6 +97,7 @@ async def create_ticket(
         assigned_agent_id = current_user.id
 
     now = datetime.now(UTC)
+    ai_fields = build_ai_storage_fields(category, priority, sentiment)
     ticket_doc = {
         "title": payload.title,
         "description": payload.description,
@@ -114,6 +111,7 @@ async def create_ticket(
         "created_by": current_user.id,
         "created_at": now,
         "updated_at": now,
+        **ai_fields,
     }
 
     result = await db.tickets.insert_one(ticket_doc)
@@ -145,6 +143,46 @@ async def get_ticket(
 ) -> TicketResponse:
     ticket = await get_accessible_ticket(ticket_id, db, current_user)
     return ticket_doc_to_response(ticket)
+
+
+@router.patch("/{ticket_id}/override", response_model=TicketResponse)
+async def override_ticket_classification(
+    ticket_id: str,
+    payload: TicketOverrideRequest,
+    db: AsyncIOMotorDatabase = Depends(get_database),
+    current_user: UserResponse = Depends(get_current_user),
+) -> TicketResponse:
+    object_id = parse_ticket_id(ticket_id)
+    ticket = await get_accessible_ticket(ticket_id, db, current_user)
+
+    update_data: dict[str, Any] = {
+        "overridden_by": current_user.id,
+        "overridden_at": datetime.now(UTC),
+        "updated_at": datetime.now(UTC),
+    }
+
+    if payload.override_reason is not None:
+        update_data["override_reason"] = payload.override_reason.strip() or None
+
+    if payload.category is not None:
+        normalized_category = validate_override_category(payload.category)
+        update_data["category_override"] = normalized_category
+        update_data["category"] = normalized_category
+
+    if payload.priority is not None:
+        update_data["priority_override"] = payload.priority.value
+        update_data["priority"] = payload.priority.value
+
+    await db.tickets.update_one({"_id": object_id}, {"$set": update_data})
+
+    updated = await db.tickets.find_one({"_id": object_id})
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Ticket not found",
+        )
+
+    return ticket_doc_to_response(updated)
 
 
 @router.put("/{ticket_id}", response_model=TicketResponse)
