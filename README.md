@@ -1,223 +1,371 @@
-# TriageIQ
+# TriageIQ — AI-Powered Support Ticket Intelligence Platform
 
-TriageIQ is a full-stack support ticket triage platform that classifies incoming tickets with a local keyword-based AI engine, routes them to support queues, and lets agents or admins apply manual overrides when the AI is wrong. Administrators get analytics on ticket volume, resolution rates, and AI accuracy.
+TriageIQ is a full-stack support ticket intelligence platform that helps support teams manage, classify, route, and analyze customer support tickets. The application allows users to create and manage tickets, automatically classifies tickets using a local AI/NLP-style keyword classifier, routes tickets to the correct support queue, and provides analytics for administrators.
 
-## Core features
+The system supports role-based access control with two roles: **ADMIN** and **AGENT**. Admins can view analytics, manage users, and access all tickets. Agents can view and work on tickets assigned or accessible to them.
 
-- **JWT authentication** with bcrypt password hashing and role-based access (`ADMIN`, `AGENT`)
-- **Ticket CRUD** with automatic AI classification on create (category, priority, sentiment, confidence, explanation)
-- **Smart queue routing** (Billing Support, Technical Support, Escalations, Product Team, etc.)
-- **Manual override** of AI category/priority with preserved original AI values, reset-to-AI, and override audit metadata
-- **Admin analytics dashboard** with ticket breakdowns, AI accuracy, override rate, and charts
-- **Admin user management** — create and deactivate users (soft delete)
-- **Agent workflow** — view assigned tickets, create tickets, update status, apply overrides on accessible tickets
-- **Seed data script** — 55 realistic demo tickets and demo admin/agent accounts
-- **Docker Compose** for local full-stack development
-- **Kubernetes manifests** (optional) for cluster deployment
-- **GitHub Actions CI** — backend lint/tests and frontend lint/build on every push and PR
+---
+
+## Project Overview
+
+Customer support teams often receive large volumes of tickets with different urgency levels, categories, and customer sentiment. Manually reviewing and routing every ticket can slow down response time and increase workload.
+
+TriageIQ solves this problem by:
+
+* Automatically classifying tickets by **category**, **priority**, and **sentiment**
+* Routing tickets to the correct support queue
+* Allowing manual override when the AI classification is incorrect
+* Providing an admin analytics dashboard
+* Supporting secure login with JWT authentication
+* Enforcing role-based access for admins and agents
+
+This project was built as a full-stack portfolio application with backend APIs, frontend UI, database integration, Docker support, testing, and documentation.
+
+---
 
 ## Screenshots
 
-Add screenshots to `docs/screenshots/` for submission. Suggested captures:
+### Login Page
 
-| File | View |
-|------|------|
-| `login.png` | Login page |
-| `dashboard.png` | Admin dashboard |
-| `tickets.png` | Ticket list with filters |
-| `ticket-detail.png` | Ticket detail with AI classification and manual override |
-| `analytics.png` | Admin analytics with AI accuracy metrics |
-| `users.png` | Admin user management |
+![Login Page](docs/screenshots/login.png)
 
-Example markdown once images are added:
+### Admin Dashboard
 
-```markdown
-![Login](docs/screenshots/login.png)
-![Analytics](docs/screenshots/analytics.png)
-```
+![Admin Dashboard](docs/screenshots/dashboard.png)
 
-## Tech stack
+### Admin Ticket List
 
-| Layer | Technology |
-|-------|------------|
-| Backend API | FastAPI, Python 3.13, Pydantic v2 |
-| Database | MongoDB 7.0 (Motor async driver) |
-| Auth | JWT (python-jose), bcrypt (passlib) |
-| Frontend | React 19, Vite 8, React Router, Axios, Recharts |
-| Testing | pytest, pytest-asyncio, pytest-cov, httpx, Ruff |
-| Linting | Ruff (backend), ESLint (frontend) |
-| Containers | Docker, Docker Compose |
-| Orchestration | Kubernetes (optional manifests in `k8s/`) |
-| CI/CD | GitHub Actions |
+![Ticket List](docs/screenshots/tickets.png)
 
-## Why FastAPI?
+### Ticket Detail with AI Classification
 
-FastAPI was chosen for:
+![Ticket Detail](docs/screenshots/ticket_detail_01.png)
 
-- **Automatic OpenAPI/Swagger docs** — every endpoint is documented at `/docs` without extra tooling
-- **Pydantic validation** — request/response schemas catch bad input early and keep the API contract explicit
-- **Async support** — fits MongoDB access via Motor for concurrent ticket and analytics workloads
-- **Small, readable codebase** — routers, services, and schemas stay separated without heavy framework ceremony
+![Ticket Detail](docs/screenshots/ticket_detail_02.png)
 
-## AI classification approach
+### Create Ticket
 
-TriageIQ uses a **local, keyword-based classifier** (`backend/app/services/classifier.py`), not a hosted LLM or external NLP API.
+![Create Ticket](docs/screenshots/create_ticket.png)
 
-On ticket creation the service:
+### Analytics Dashboard
 
-1. Scans title + description for category keywords (Billing, Technical, Account, Feature Request, Complaint)
-2. Derives priority from urgency/error language (LOW → URGENT)
-3. Derives sentiment from positive/negative keywords
-4. Computes a **confidence score** from keyword match strength
-5. Returns a human-readable **explanation** string
-6. Passes results to **smart routing** (`backend/app/services/routing.py`) for queue assignment
+![Analytics Dashboard](docs/screenshots/analytics_01.png)
 
-### Why local/mock NLP?
+![Analytics Dashboard](docs/screenshots/analytics_02.png)
 
-- **No API keys or cost** — suitable for demos, coursework, and CI without cloud dependencies
-- **Deterministic and testable** — pytest can assert exact categories and routes
-- **Fast and offline** — classification runs in-process with no network latency
-- **Transparent** — rules are readable in code; overrides and analytics measure when rules fail
+### Admin User Management
 
-Manual overrides store original AI values separately so analytics can report **AI accuracy** vs **manual override rate**.
+![User Management](docs/screenshots/users.png)
 
-## Quick start (Docker Compose)
+### User Profile
 
-**Prerequisites:** Docker and Docker Compose
+![User Profile](docs/screenshots/profile_01.png)
+
+![User Profile](docs/screenshots/profile_02.png)
+
+### Agent Ticket View
+
+![Agent Ticket View](docs/screenshots/agent_tickets.png)
+
+### Swagger API Documentation
+
+![Swagger API Documentation](docs/screenshots/swagger_01.png)
+
+![Swagger API Documentation](docs/screenshots/swagger_02.png)
+
+![Swagger API Documentation](docs/screenshots/swagger_03.png)
+
+---
+
+## Core Features
+
+* JWT-based authentication
+* Role-based access control for `ADMIN` and `AGENT`
+* Admin and agent login flows
+* Ticket CRUD operations
+* Automatic AI classification on ticket creation
+* Category, priority, sentiment, confidence score, and explanation generation
+* Smart queue routing
+* Manual override of AI category and priority
+* Original AI values preserved for analytics
+* Admin analytics dashboard
+* Admin user management
+* Agent ticket workflow
+* User profile page
+* Change password functionality
+* Seed demo data
+* Docker Compose setup
+* Swagger API documentation
+* Backend tests with coverage summary
+* Frontend lint and build checks
+* Optional Kubernetes manifests
+* GitHub Actions CI workflow
+
+---
+
+## Tech Stack
+
+| Layer               | Technology                                |
+| ------------------- | ----------------------------------------- |
+| Frontend            | React, TypeScript, Vite                   |
+| Routing             | React Router                              |
+| API Calls           | Axios                                     |
+| Charts              | Recharts                                  |
+| Backend             | FastAPI, Python                           |
+| Database            | MongoDB                                   |
+| MongoDB Driver      | Motor async driver                        |
+| Authentication      | JWT, bcrypt password hashing              |
+| Validation          | Pydantic                                  |
+| Testing             | pytest, pytest-asyncio, pytest-cov, httpx |
+| Linting             | Ruff, ESLint                              |
+| Containers          | Docker, Docker Compose                    |
+| API Documentation   | Swagger / OpenAPI                         |
+| CI/CD               | GitHub Actions                            |
+| Optional Deployment | Kubernetes manifests                      |
+
+---
+
+## Why FastAPI Instead of Spring Boot?
+
+Spring Boot is a strong enterprise backend framework commonly used for large-scale Java applications. It provides mature dependency injection, security configuration, production tooling, and strong support for enterprise systems.
+
+However, I chose **FastAPI** for TriageIQ because this project includes an AI/NLP-style classification layer, and Python is better suited for building and extending machine learning or NLP workflows. FastAPI also provides automatic Swagger documentation, strong request validation through Pydantic, async support for MongoDB using Motor, and faster development for a lightweight full-stack project.
+
+For this project timeline and use case, FastAPI was a better fit than Spring Boot because:
+
+* The AI classification logic is easier to build and test in Python
+* FastAPI automatically generates Swagger documentation
+* Pydantic makes API validation simple and explicit
+* Async support works well with MongoDB
+* The backend remains lightweight and readable
+* It supports rapid development for a portfolio/demo project
+
+Spring Boot would be a good choice for a larger enterprise Java system, but FastAPI was better for this AI-powered support ticket platform.
+
+---
+
+## AI Classification Approach
+
+TriageIQ uses a local keyword-based AI/NLP-style classifier instead of a hosted LLM or paid external API.
+
+When a ticket is created, the classifier analyzes the ticket title and description to predict:
+
+* Category
+* Priority
+* Sentiment
+* Confidence score
+* Explanation
+
+The classifier then passes the result to the routing service, which assigns the ticket to the correct support queue.
+
+### Why Local/Mock AI?
+
+The local classifier was chosen because:
+
+* It does not require paid API keys
+* It works offline
+* It is deterministic and easy to test
+* It avoids external API cost
+* It is suitable for demos and coursework
+* It makes the classification logic transparent
+
+Manual overrides are also supported. When an admin or agent changes the AI-generated category or priority, the original AI values are preserved. This allows the analytics dashboard to calculate AI accuracy and override rate.
+
+---
+
+## Quick Start with Docker Compose
+
+### Prerequisites
+
+Install:
+
+* Docker
+* Docker Compose
+
+### Setup
+
+From the repository root, run:
 
 ```bash
-# From the repository root
+cp .env.example .env
 docker compose up --build -d
 docker compose exec backend python scripts/seed_data.py
 ```
 
-| Service | URL |
-|---------|-----|
-| Frontend | http://localhost:5173 |
-| Backend API | http://localhost:8000 |
-| Swagger UI | http://localhost:8000/docs |
-| ReDoc | http://localhost:8000/redoc |
+This starts the full application with:
 
-**Demo accounts** (created by seed script):
+* MongoDB
+* FastAPI backend
+* React frontend
+* Seed demo users
+* Seed demo tickets
 
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@triageiq.com | Admin@123 |
-| Agent | agent@triageiq.com | Agent@123 |
+### Application URLs
 
-Stop services:
+| Service      | URL                          |
+| ------------ | ---------------------------- |
+| Frontend     | http://localhost:5173        |
+| Backend API  | http://localhost:8000        |
+| Swagger UI   | http://localhost:8000/docs   |
+| ReDoc        | http://localhost:8000/redoc  |
+| Health Check | http://localhost:8000/health |
+
+### Demo Accounts
+
+| Role  | Email                                           | Password  |
+| ----- | ----------------------------------------------- | --------- |
+| Admin | [admin@triageiq.com](mailto:admin@triageiq.com) | Admin@123 |
+| Agent | [agent@triageiq.com](mailto:agent@triageiq.com) | FinalAgent@123 |
+
+### Stop the Application
 
 ```bash
 docker compose down
 ```
 
-## Local development setup
+---
 
-### Backend
+## Environment Variables
 
-**Prerequisites:** Python 3.13+, MongoDB running locally
-
-```bash
-cd backend
-python -m venv .venv
-# Windows
-.\.venv\Scripts\activate
-# macOS/Linux
-source .venv/bin/activate
-
-pip install -r requirements.txt
-cp ../.env.example ../.env   # edit JWT_SECRET
-python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-```
-
-### Frontend
-
-**Prerequisites:** Node.js 22+
+Copy `.env.example` to `.env` before running the project.
 
 ```bash
-cd frontend
-npm ci
-cp ../.env.example .env.local   # optional: set VITE_API_BASE_URL
-npm run dev
+cp .env.example .env
 ```
 
-Open http://localhost:5173 and log in with a seeded or registered user.
+Do not commit real secrets to GitHub. The `.env.example` file should contain only safe placeholder values.
 
-### Register users (API only)
+| Variable             | Used By  | Description                                |
+| -------------------- | -------- | ------------------------------------------ |
+| `MONGODB_URI`        | Backend  | MongoDB connection string                  |
+| `MONGODB_DB`         | Backend  | MongoDB database name                      |
+| `JWT_SECRET`         | Backend  | Secret key used to sign JWT tokens         |
+| `JWT_ALGORITHM`      | Backend  | JWT signing algorithm                      |
+| `JWT_EXPIRE_MINUTES` | Backend  | JWT token expiration time                  |
+| `APP_ENV`            | Backend  | Application environment                    |
+| `CORS_ORIGINS`       | Backend  | Allowed frontend origins                   |
+| `VITE_API_BASE_URL`  | Frontend | Backend API base URL                       |
+| `TEST_MONGODB_DB`    | Tests    | Separate MongoDB database used for testing |
 
-There is no public registration page. Use the API (`POST /auth/register`), the Postman collection, or the admin **Users** page to create accounts.
+Example `.env.example`:
 
-## Environment variables
+```env
+MONGODB_URI=mongodb://mongo:27017/triageiq
+MONGODB_DB=triageiq
+JWT_SECRET=replace-with-your-own-secret
+JWT_ALGORITHM=HS256
+JWT_EXPIRE_MINUTES=60
+APP_ENV=development
+CORS_ORIGINS=http://localhost:5173
+VITE_API_BASE_URL=http://localhost:8000
+TEST_MONGODB_DB=triageiq_test
+```
 
-Copy `.env.example` to `.env` at the repository root (backend reads it from repo root or `backend/.env`).
+---
 
-| Variable | Used by | Description |
-|----------|---------|-------------|
-| `MONGODB_URI` | Backend | MongoDB connection string |
-| `MONGODB_DB` | Backend | Database name (default `triagemiq`) |
-| `JWT_SECRET` | Backend | **Required.** Secret for signing JWTs |
-| `JWT_ALGORITHM` | Backend | Default `HS256` |
-| `JWT_EXPIRE_MINUTES` | Backend | Token lifetime (default `60`) |
-| `APP_ENV` | Backend | e.g. `development` |
-| `CORS_ORIGINS` | Backend | Comma-separated allowed origins |
-| `VITE_API_BASE_URL` | Frontend | Backend URL for browser API calls |
-| `TEST_MONGODB_DB` | Tests only | Isolated test DB name (`triageiq_test`) |
+## API Documentation
 
-Never commit real secrets. Docker Compose uses a dev default for `JWT_SECRET` when unset.
+After starting the backend, API documentation is available at:
 
-## API documentation
+* Swagger UI: http://localhost:8000/docs
+* OpenAPI JSON: http://localhost:8000/openapi.json
+* ReDoc: http://localhost:8000/redoc
 
-- **Swagger UI:** http://localhost:8000/docs
-- **OpenAPI JSON:** http://localhost:8000/openapi.json
-- **Health check:** http://localhost:8000/health
+Swagger can be used to test authentication, users, tickets, analytics, and profile endpoints.
 
-## Postman collection
+---
 
-Import the collection from:
+## Main API Endpoints
+
+| Method   | Endpoint                    | Description                          |
+| -------- | --------------------------- | ------------------------------------ |
+| `POST`   | `/auth/register`            | Register a user                      |
+| `POST`   | `/auth/login`               | Login and receive JWT token          |
+| `GET`    | `/auth/me`                  | Get current authenticated user       |
+| `GET`    | `/users`                    | Admin: view users                    |
+| `POST`   | `/users`                    | Admin: create user                   |
+| `GET`    | `/users/me`                 | View current user profile            |
+| `PUT`    | `/users/me/change-password` | Change current user password         |
+| `POST`   | `/tickets`                  | Create ticket with AI classification |
+| `GET`    | `/tickets`                  | View tickets based on role           |
+| `GET`    | `/tickets/{id}`             | View ticket details                  |
+| `PUT`    | `/tickets/{id}`             | Update ticket                        |
+| `DELETE` | `/tickets/{id}`             | Delete ticket                        |
+| `GET`    | `/analytics/summary`        | Admin analytics summary              |
+| `GET`    | `/health`                   | Health check endpoint                |
+
+---
+
+## Postman Collection
+
+A Postman collection is available at:
 
 ```text
 docs/postman/TriageIQ.postman_collection.json
 ```
 
-Set the `baseUrl` variable to `http://localhost:8000` (or your deployed API URL). Use the login request to obtain a JWT, then call protected endpoints.
+Set the Postman `baseUrl` variable to:
 
-## Seed data
+```text
+http://localhost:8000
+```
 
-The seed script inserts **55 tickets** (title prefix `SEED - `) and demo users. It is **idempotent** — re-running skips existing seed tickets.
+Use the login request to get a JWT token, then use that token for protected endpoints.
+
+---
+
+## Seed Data
+
+The seed script creates demo users and realistic support tickets.
+
+Run with Docker:
 
 ```bash
-# Local
-cd backend
-python scripts/seed_data.py
-
-# Recreate seed tickets
-python scripts/seed_data.py --reset-seed
-
-# Docker
 docker compose exec backend python scripts/seed_data.py
 ```
 
-See `backend/scripts/seed_data.py` for categories, queues, and manual override samples used in analytics testing.
+Run locally:
 
-## Testing
+```bash
+cd backend
+python scripts/seed_data.py
+```
 
-Tests use a **separate MongoDB database** (`triageiq_test`) so development data is not modified.
+The seed data includes:
+
+* Demo admin account
+* Demo agent account
+* Multiple sample tickets
+* Different categories
+* Different priorities
+* Different sentiments
+* Assigned queues
+* Manual override examples for analytics
+
+The script is idempotent, so running it multiple times will not duplicate existing seed data.
+
+---
+
+## Testing Instructions
+
+### Backend Tests
+
+From the backend folder, run:
 
 ```bash
 cd backend
 python -m pytest tests -v
+```
+
+Run tests with coverage:
+
+```bash
 python -m pytest --cov=app --cov-report=term-missing
 ```
 
-### Coverage summary
+### Frontend Checks
 
-| Metric | Value |
-|--------|-------|
-| Test files | 8 (`test_auth`, `test_classifier`, `test_routing`, `test_tickets`, `test_ticket_override`, `test_rbac`, `test_users`, `test_integration_api`) |
-| Tests | 60 |
-| App coverage | ~92% (via `pytest-cov`) |
-
-Frontend checks:
+From the frontend folder, run:
 
 ```bash
 cd frontend
@@ -225,75 +373,303 @@ npm run lint
 npm run build
 ```
 
+---
+
+## Coverage Summary
+
+| Metric                       | Value           |
+| ---------------------------- | --------------- |
+| Backend test framework       | pytest          |
+| Coverage tool                | pytest-cov      |
+| Test database                | `triageiq_test` |
+| Test files                   | 8               |
+| Total tests                  | 60              |
+| Approximate backend coverage | 92%             |
+
+Covered areas include:
+
+* Authentication
+* JWT login flow
+* Role-based access control
+* Ticket CRUD
+* AI classification
+* Smart routing
+* Manual override logic
+* User management
+* Analytics summary
+* API integration behavior
+
+---
+
 ## Docker
 
-| File | Purpose |
-|------|---------|
-| `docker-compose.yml` | MongoDB, backend, frontend services |
-| `backend/Dockerfile` | Python 3.13 slim, uvicorn on port 8000 |
-| `frontend/Dockerfile` | Node 22, Vite dev server on port 5173 |
+Docker Compose starts the full local development environment.
 
-Compose wires `MONGODB_URI=mongodb://mongo:27017/triageiq` and maps ports `27017`, `8000`, and `5173`.
+| File                  | Purpose                                  |
+| --------------------- | ---------------------------------------- |
+| `docker-compose.yml`  | Runs MongoDB, backend, and frontend      |
+| `backend/Dockerfile`  | Builds the FastAPI backend container     |
+| `frontend/Dockerfile` | Builds the React/Vite frontend container |
 
-## Kubernetes (optional)
+Docker Compose maps these ports:
 
-Example manifests live in [`k8s/`](k8s/README.md):
+| Service  | Port    |
+| -------- | ------- |
+| Frontend | `5173`  |
+| Backend  | `8000`  |
+| MongoDB  | `27017` |
 
-- ConfigMap for non-sensitive configuration
-- Deployments and Services for MongoDB, backend, and frontend
-- Secret template for `JWT_SECRET` (no real values committed)
+---
 
-Backend connects to MongoDB via the in-cluster service name `triageiq-mongodb:27017`. Docker Compose remains the recommended local path.
+## Local Development Setup
 
-## Continuous integration
+Docker Compose is the recommended setup method. However, the project can also be run manually for development.
 
-GitHub Actions workflow: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+### Backend
 
-Runs on **every push and pull request** (all branches):
+Prerequisites:
 
-| Job | Steps |
-|-----|-------|
-| **Backend** | Python 3.13, Ruff lint, pytest with coverage, MongoDB 7.0 service container |
-| **Frontend** | Node 22, `npm ci`, ESLint, production build |
+* Python 3.13+
+* MongoDB running locally
 
-CI uses test-only secrets (`JWT_SECRET=ci-test-jwt-secret-not-for-production`).
+```bash
+cd backend
+python -m venv .venv
+```
 
-## Project structure
+Activate virtual environment:
+
+Windows:
+
+```bash
+.\.venv\Scripts\activate
+```
+
+macOS/Linux:
+
+```bash
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Run backend:
+
+```bash
+python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+```
+
+### Frontend
+
+Prerequisites:
+
+* Node.js
+* npm
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+---
+
+## Role-Based Access Control
+
+TriageIQ supports two roles:
+
+### Admin
+
+Admins can:
+
+* View all tickets
+* Create tickets
+* Update tickets
+* Delete tickets
+* View analytics
+* Manage users
+* View user list
+* Deactivate users
+* Access admin dashboard
+
+### Agent
+
+Agents can:
+
+* View accessible or assigned tickets
+* Create tickets
+* View ticket details
+* Update ticket status
+* Apply manual overrides on accessible tickets
+* View their profile
+
+Agents cannot:
+
+* View admin analytics
+* Manage users
+* Access admin-only pages
+* Delete users
+
+RBAC is enforced on both the frontend and backend. The frontend hides restricted pages, and the backend protects endpoints using role checks.
+
+---
+
+## Project Structure
 
 ```text
 TriageIQ/
-├── backend/           # FastAPI app, tests, seed script
-├── frontend/          # React + Vite SPA
-├── docs/              # ARCHITECTURE.md, DEVLOG.md, AI_USAGE.md, Postman
-├── k8s/               # Kubernetes manifests
-├── .github/workflows/ # CI pipeline
-└── docker-compose.yml
+├── backend/
+│   ├── app/
+│   │   ├── api/
+│   │   ├── core/
+│   │   ├── db/
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   └── services/
+│   ├── scripts/
+│   └── tests/
+├── frontend/
+│   ├── src/
+│   │   ├── api/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   └── routes/
+├── docs/
+│   ├── screenshots/
+│   ├── postman/
+│   ├── ARCHITECTURE.md
+│   ├── DEVLOG.md
+│   └── AI_USAGE.md
+├── k8s/
+├── .github/
+│   └── workflows/
+├── docker-compose.yml
+├── .env.example
+└── README.md
 ```
 
-## Known limitations
+---
 
-- **Keyword classifier** — accuracy depends on keyword overlap; ambiguous tickets may misclassify
-- **No hosted LLM** — no semantic understanding beyond configured rules
-- **No email/notification system** — tickets are in-app only
-- **Frontend auth** — JWT stored in `localStorage`; no refresh-token rotation
-- **Route protection** — UI hides admin nav links by role; API enforces RBAC on the server
-- **Agent ticket visibility** — agents see only tickets assigned to them (unless admin)
-- **Docker frontend** — runs Vite dev server, not a production nginx static build
-- **Kubernetes** — example manifests only; no Ingress/TLS or managed MongoDB included
-- **Screenshots** — not bundled; add to `docs/screenshots/` for submissions
+## Kubernetes
 
-## What I would improve with one more week
+Optional Kubernetes manifests are included in the `k8s/` folder.
 
-1. **Production frontend build** — multi-stage Docker image serving static assets behind nginx with environment-based API URL
-2. **Stronger classifier** — optional pluggable provider (local embeddings or API) behind the same interface
-3. **Refresh tokens and httpOnly cookies** — more secure session handling
-4. **Ticket comments and activity log** — audit trail beyond override metadata
-5. **E2E tests** — Playwright covering login, ticket create, override, and analytics
-6. **Ingress + Helm chart** — production-ready Kubernetes packaging with secrets management
-7. **Real-time updates** — WebSocket or polling for ticket list refresh
+They include example configuration for:
 
-## Additional documentation
+* MongoDB deployment
+* Backend deployment
+* Frontend deployment
+* Services
+* ConfigMap
+* Secret template
 
-- [Architecture](docs/ARCHITECTURE.md)
-- [Development log](docs/DEVLOG.md)
-- [AI tool usage](docs/AI_USAGE.md)
+Docker Compose is the recommended setup for local development. Kubernetes manifests are provided as optional deployment references.
+
+---
+
+## Continuous Integration
+
+GitHub Actions workflow is available at:
+
+```text
+.github/workflows/ci.yml
+```
+
+The CI pipeline runs on push and pull request.
+
+### Backend CI
+
+* Install Python dependencies
+* Run Ruff linting
+* Run pytest
+* Generate coverage
+
+### Frontend CI
+
+* Install Node dependencies
+* Run ESLint
+* Build frontend
+
+---
+
+## Known Limitations
+
+* The AI classifier is keyword-based, so ambiguous tickets may be misclassified.
+* The project does not use a hosted LLM or advanced semantic model.
+* There is no email notification system.
+* There is no real-time WebSocket ticket update.
+* JWT is stored in localStorage instead of httpOnly cookies.
+* Refresh token rotation is not implemented.
+* Docker frontend uses the Vite development server instead of a production nginx build.
+* Kubernetes manifests are examples and do not include Ingress, TLS, or managed MongoDB.
+* The system is designed for demo and portfolio use, not production deployment yet.
+
+---
+
+## What I Would Improve With One More Week
+
+With one more week, I would improve the project by adding:
+
+1. **Production frontend deployment**
+
+   * Build frontend as static files
+   * Serve using nginx
+   * Use environment-based API configuration
+
+2. **Stronger AI classifier**
+
+   * Add embeddings or optional LLM provider
+   * Improve accuracy for ambiguous tickets
+   * Add confidence tuning
+
+3. **Refresh tokens and httpOnly cookies**
+
+   * Improve authentication security
+   * Reduce risk from localStorage token storage
+
+4. **Ticket comments and activity log**
+
+   * Track status changes
+   * Track comments
+   * Maintain a full audit trail
+
+5. **End-to-end tests**
+
+   * Use Playwright or Cypress
+   * Test login, ticket creation, overrides, and analytics
+
+6. **Production Kubernetes deployment**
+
+   * Add Ingress
+   * Add TLS
+   * Add Helm chart
+   * Use managed MongoDB
+
+7. **Real-time updates**
+
+   * Add WebSocket or polling
+   * Refresh ticket list automatically
+
+---
+
+## Additional Documentation
+
+* [Architecture](docs/ARCHITECTURE.md)
+* [Development Log](docs/DEVLOG.md)
+* [AI Tool Usage](docs/AI_USAGE.md)
+
+---
+
+## Final Notes
+
+TriageIQ demonstrates a complete full-stack application with authentication, role-based access control, ticket management, AI-style classification, routing, analytics, Docker support, testing, and documentation. The project is designed to show practical backend, frontend, database, and AI integration skills in one portfolio-ready application.
