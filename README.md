@@ -73,3 +73,12 @@ python -m pytest tests -v
 ## Kubernetes (optional)
 
 Manifests for deploying to a cluster live in [`k8s/`](k8s/README.md). Docker Compose remains the default for local development.
+
+## Continuous integration
+
+GitHub Actions runs on every push and pull request (all branches):
+
+- **Backend:** Ruff lint and pytest with coverage (MongoDB 7.0 service container)
+- **Frontend:** ESLint and production build (`npm run lint`, `npm run build`)
+
+Workflow file: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
