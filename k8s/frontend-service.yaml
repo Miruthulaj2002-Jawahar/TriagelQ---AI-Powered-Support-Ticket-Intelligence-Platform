@@ -1,0 +1,18 @@
+# Frontend Service (ClusterIP). Expose via Ingress or NodePort for browser access.
+# Apply: kubectl apply -f k8s/frontend-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: triageiq-frontend
+  labels:
+    app: triageiq
+    component: frontend
+spec:
+  type: ClusterIP
+  selector:
+    app: triageiq
+    component: frontend
+  ports:
+    - name: http
+      port: 5173
+      targetPort: 5173

@@ -1,0 +1,18 @@
+# Backend Service (ClusterIP). Expose via Ingress or NodePort for external access.
+# Apply: kubectl apply -f k8s/backend-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: triageiq-backend
+  labels:
+    app: triageiq
+    component: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: triageiq
+    component: backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000

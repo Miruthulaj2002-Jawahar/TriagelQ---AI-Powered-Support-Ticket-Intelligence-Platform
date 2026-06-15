@@ -1,0 +1,24 @@
+# Non-sensitive configuration for TriageIQ.
+# Apply: kubectl apply -f k8s/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: triageiq-config
+  labels:
+    app: triageiq
+data:
+  # MongoDB database name
+  MONGODB_DB: triageiq
+
+  # Backend connects to the MongoDB Service DNS name (see mongodb-service.yaml)
+  MONGODB_URI: mongodb://triageiq-mongodb:27017/triageiq
+
+  JWT_ALGORITHM: HS256
+  JWT_EXPIRE_MINUTES: "60"
+  APP_ENV: production
+
+  # Update CORS_ORIGINS to match your frontend Ingress/NodePort URL in production.
+  CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+
+  # Browser-facing API URL for the Vite frontend (adjust for your cluster ingress/NodePort).
+  VITE_API_BASE_URL: http://localhost:8000

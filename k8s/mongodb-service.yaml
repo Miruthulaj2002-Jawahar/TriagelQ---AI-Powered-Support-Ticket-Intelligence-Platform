@@ -1,0 +1,19 @@
+# MongoDB ClusterIP Service.
+# Backend uses this DNS name: triageiq-mongodb:27017
+# Apply: kubectl apply -f k8s/mongodb-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: triageiq-mongodb
+  labels:
+    app: triageiq
+    component: mongodb
+spec:
+  type: ClusterIP
+  selector:
+    app: triageiq
+    component: mongodb
+  ports:
+    - name: mongo
+      port: 27017
+      targetPort: 27017

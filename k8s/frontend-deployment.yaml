@@ -1,0 +1,53 @@
+# React/Vite frontend Deployment.
+# Build image first: docker build -t triageiq-frontend:latest ./frontend
+# Apply: kubectl apply -f k8s/frontend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: triageiq-frontend
+  labels:
+    app: triageiq
+    component: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: triageiq
+      component: frontend
+  template:
+    metadata:
+      labels:
+        app: triageiq
+        component: frontend
+    spec:
+      containers:
+        - name: frontend
+          image: triageiq-frontend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5173
+              name: http
+          envFrom:
+            - configMapRef:
+                name: triageiq-config
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m

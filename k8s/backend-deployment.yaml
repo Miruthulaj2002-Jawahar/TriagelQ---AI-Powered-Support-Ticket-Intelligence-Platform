@@ -1,0 +1,60 @@
+# FastAPI backend Deployment.
+# Build image first: docker build -t triageiq-backend:latest ./backend
+# Apply: kubectl apply -f k8s/backend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: triageiq-backend
+  labels:
+    app: triageiq
+    component: backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: triageiq
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: triageiq
+        component: backend
+    spec:
+      containers:
+        - name: backend
+          image: triageiq-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: triageiq-config
+          env:
+            # JWT_SECRET must come from a Kubernetes Secret (never commit real values).
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: triageiq-secrets
+                  key: jwt-secret
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:
+            requests:
+              memory: 128Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m
