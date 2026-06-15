@@ -53,7 +53,10 @@ function Tickets() {
   }, []);
 
   useEffect(() => {
-    fetchTickets();
+    const frameId = requestAnimationFrame(() => {
+      fetchTickets();
+    });
+    return () => cancelAnimationFrame(frameId);
   }, [fetchTickets]);
 
   const categoryOptions = useMemo(() => {

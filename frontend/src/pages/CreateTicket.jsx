@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { createTicket } from '../api/api.js';
-import { renderDetailValue } from '../utils/badges.jsx';
+import { renderDetailValue } from '../utils/renderDetailValue.jsx';
 import './CreateTicket.css';
 
 const EMPTY_FORM = {

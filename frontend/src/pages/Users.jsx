@@ -64,12 +64,16 @@ function Users() {
   }, []);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (!isAdmin) {
+      return undefined;
+    }
+    const frameId = requestAnimationFrame(() => {
       fetchUsers();
       getCurrentUser()
         .then((response) => setCurrentUserId(response.data.id))
         .catch(() => setCurrentUserId(''));
-    }
+    });
+    return () => cancelAnimationFrame(frameId);
   }, [fetchUsers, isAdmin]);
 
   const handleFormChange = (event) => {

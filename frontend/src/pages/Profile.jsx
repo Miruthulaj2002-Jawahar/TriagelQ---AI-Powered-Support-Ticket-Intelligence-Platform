@@ -78,7 +78,10 @@ function Profile() {
   }, []);
 
   useEffect(() => {
-    fetchProfileData();
+    const frameId = requestAnimationFrame(() => {
+      fetchProfileData();
+    });
+    return () => cancelAnimationFrame(frameId);
   }, [fetchProfileData]);
 
   const isAdmin = user?.role === 'ADMIN';

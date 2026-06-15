@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getTicketById, overrideTicket, resetTicketOverride, updateTicket } from '../api/api.js';
-import { PriorityBadge, renderDetailValue } from '../utils/badges.jsx';
+import { PriorityBadge } from '../utils/badges.jsx';
+import { renderDetailValue } from '../utils/renderDetailValue.jsx';
 import './TicketDetail.css';
 
 const STATUS_OPTIONS = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'];
@@ -148,7 +149,10 @@ function TicketDetail() {
   }, [applyTicketToForm, id]);
 
   useEffect(() => {
-    fetchTicket();
+    const frameId = requestAnimationFrame(() => {
+      fetchTicket();
+    });
+    return () => cancelAnimationFrame(frameId);
   }, [fetchTicket]);
 
   const handleStatusUpdate = async (event) => {

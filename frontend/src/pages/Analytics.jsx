@@ -156,9 +156,13 @@ function Analytics() {
   }, []);
 
   useEffect(() => {
-    if (isAdmin) {
-      fetchSummary();
+    if (!isAdmin) {
+      return undefined;
     }
+    const frameId = requestAnimationFrame(() => {
+      fetchSummary();
+    });
+    return () => cancelAnimationFrame(frameId);
   }, [fetchSummary, isAdmin]);
 
   const metricCards = useMemo(
